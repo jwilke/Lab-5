@@ -44,6 +44,10 @@ team_t team = {
 // Pack a size and allocated bit into a word
 #define PACK(size, alloc) ((size) | (alloc))
 
+#define SET_LEFT(p, addr)	PUT(p, addr)
+#define SET_RIGHT(p, addr)	PUT(p+WSIZE, addr)
+#define SET_SIZE(p, size) 	PUT(p+(2*WSIZE), PACK(size, 0);
+
 // Read and write a word at address p
 #define GET(p)	(*(unsigned int *) (p))
 #define PUT(p, val) (*(unsigned int *) (p) = (val))
@@ -78,6 +82,7 @@ static void place(void *bp, size_t asize);
 
 //private global pointers
 static void *heap_listp;
+static void *root;  //base node of RBTree
 
 /* 
  * mm_init - initialize the malloc package.
@@ -85,7 +90,7 @@ static void *heap_listp;
 int mm_init(void)
 {
 	//Create the initial empty heap
-	if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)	return -1;
+	/*if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)	return -1;
 
 	PUT(heap_listp, 0);				// Alignment padding
 	PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1));	// Prologue header
@@ -95,7 +100,18 @@ int mm_init(void)
 
 	//Extend the empty heap with a free block of CHUNKSIZE bytes
 	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
+		return -1;*/
+
+	if ((root = mem_sbrk(3*WSIZE) == (void *)-1) return -1;
+	
+	PUT(root, 0);				//Alignment padding
+	SET_LEFT(root, NULL);			//Set left pointer
+	SET_RIGHT(root, NULL);			//Set right pointer
+	SET_SIZE(root, 0);			//Set size of base node
+	
+	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
 		return -1;
+
 	return 0;
 }
 
@@ -157,7 +173,7 @@ void *mm_realloc(void *ptr, size_t size)
     newptr = mm_malloc(size);
     if (newptr == NULL)
       return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    copySize = GET_SIZE(HDRP(oldptr));    //*(size_t *)((char *)oldptr - SIZE_T_SIZE);
     if (size < copySize)
       copySize = size;
     memcpy(newptr, oldptr, copySize);
@@ -175,15 +191,16 @@ static void *extend_heap(size_t words) {
 		return NULL;
 
 	//Init free block header/footer and the epilogue header
-	PUT(HDRP(bp), PACK(size, 0));		// Free block header
-	PUT(FTRP(bp), PACK(size, 0));		// Free block footer
-	PUT(HDRP(NEXT_BLKP(bp)), PACK(0,1));	// New epilogue header
+	//SET_RIGHT(root, bp); //add to tree
+	SET_LEFT(bp, NULL);			//Set left pointer
+	SET_RIGHT(BP, NULL);			//Set right pointer
+	SET_SIZE(BP, size-(3*WSIZE));		//Set size of base node
 
 	return coalesce(bp);
 }
 
 
-static void *coalesce(void * bp) {
+static void *coalesce(void * bp) {  // search tree for coalesce, HOW DO YOU DO THAT WITH THE TREE???
 	size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
 	size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
 	size_t size = GET_SIZE(HDRP(bp));
