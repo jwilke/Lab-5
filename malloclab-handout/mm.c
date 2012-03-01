@@ -42,19 +42,15 @@ team_t team = {
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 // Pack a size and allocated bit into a word
-#define PACK(size, alloc) ((size) | (alloc))
-
-#define SET_LEFT(p, addr)	PUT(p, addr)
-#define SET_RIGHT(p, addr)	PUT(p+WSIZE, addr)
-#define SET_SIZE(p, size) 	PUT(p+(2*WSIZE), PACK(size, 0);
+//#define PACK(size, alloc) ((size) | (alloc))
 
 // Read and write a word at address p
 #define GET(p)	(*(unsigned int *) (p))
 #define PUT(p, val) (*(unsigned int *) (p) = (val))
 
 //Read the size and allocated fields from address p
-#define GET_SIZE(p) 	(GET(p) & ~0x7)
-#define GET_ALLOC(p) 	(GET(p) & 0x1)
+//#define GET_SIZE(p) 	(GET(p) & ~0x7)
+//#define GET_ALLOC(p) 	(GET(p) & 0x1)
 
 // Given block ptr bp, compute address of its header and footer
 #define HDRP(bp) 	((char *)(bp) - WSIZE)
@@ -73,6 +69,23 @@ team_t team = {
 
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+
+/* Node macros */
+#define SET_LEFT(p, addr)	PUT(p-(3*WSIZE), addr)
+#define SET_RIGHT(p, addr)	PUT(p-(2*WSIZE), addr)
+#define SET_SIZE(p, size) 	PUT(p-WSIZE, PACK(size, GET_ALLOC(p), GET_RB(p))
+#define SET_PARENT(p, addr)	PUT(p+GET_SIZE(p), addr)
+#define SET_ALLOC(p, alloc)	PUT(p-WSIZE, PACK(GET_SIZE(p), alloc. GET_RB(p))
+#define PACK(size, alloc, RB) 	((size) | (!!alloc) | ((!!RB)<<1))
+
+#define GET_LEFT(p)		GET(p-3*(WSIZE))
+#define GET_RIGHT(p)		GET(p-2*(WSIZE))
+#define GET_ALLOC(p)		GET(p-1*(WSIZE) & 0x01)
+#define GET_SIZE(p)		
+#define GET_RB(p)		
+#define GET_PARENT(p)		
+#define GET_LAST(p)		
+#define GET_NEXT(p)		
 
 //methods
 static void *extend_heap(size_t words);
