@@ -45,8 +45,8 @@ team_t team = {
 #define PACK(size, alloc) ((size) | (alloc))
 
 // Read and write a word at address p
-#define GET(p)	(*(unsigned int *) (p))
-#define PUT(p, val) (*(unsigned int *) (p) = (val))
+#define GET(p)	(*((unsigned int *) (p)))
+#define PUT(p, val) (*((unsigned int *) (p)) = ((unsigned int) val))
 
 //Read the size and allocated fields from address p
 #define GET_SIZE(p) 	(GET(p) & ~0x7)
@@ -70,28 +70,36 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
+
+
+
 /* Node macros */
 #define SET_LEFT(p, addr)	PUT(p-(3*WSIZE), addr)
 #define SET_RIGHT(p, addr)	PUT(p-(2*WSIZE), addr)
-#define SET_SIZE(p, size) 	PUT(p-WSIZE, PACK(size, GET_ALLOC(p), GET_RB(p))
+#define SET_SIZE(p, size) 	PUT(p-WSIZE, PACK_T(size, GET_ALLOC(p), GET_RB(p)))
 #define SET_PARENT(p, addr)	PUT(p+GET_SIZE(p), addr)
 #define SET_ALLOC(p, alloc)	PUT(p-WSIZE, PACK(GET_SIZE(p), alloc. GET_RB(p))
-#define PACK_T(size, alloc, RB) ((size) | (!!alloc) | ((!!RB)<<1))
+#define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
 
 #define GET_LEFT(p)		GET(p-3*(WSIZE))
 #define GET_RIGHT(p)		GET(p-2*(WSIZE))
-#define GET_ALLOC_T(p)		GET(p-1*(WSIZE) & 0x01)
-#define GET_SIZE_T(p)		GET(p-1*(WSIZE) & ~0x11)
-#define GET_RB(p)		GET(p-1*(WSIZE) & 0x10)
+#define GET_ALLOC_T(p)		GET(p-1*(WSIZE)) & 0x01
+#define GET_SIZE_T(p)		GET(p-1*(WSIZE)) & ~0x11
+#define GET_RB(p)		GET(p-1*(WSIZE)) & 0x10
 #define GET_PARENT(p)		GET(p+GET_SIZE(p))
 #define GET_LAST(p)		(GET_NEXT(GET_LEFT(p-WSIZE)) == p) ? (GET_LEFT(p-WSIZE)) : (GET_LEFT(p-WSIZE)))
 #define GET_NEXT(p)		(p+4+GET_SIZE(p))
+
+
+
+
 
 //methods
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
+static void unit();
 
 //private global pointers
 static void *heap_listp;
@@ -115,10 +123,12 @@ int mm_init(void)
 	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
 		return -1;*/
 
-	if ((root = mem_sbrk(3*WSIZE) == (void *)-1) return -1;
+	if ((root = mem_sbrk(3*WSIZE)) == (void *)-1) return -1;
 	
 	PUT(root, 0);				//Alignment padding
 	SET_LEFT(root, NULL);			//Set left pointer
+	// PUT(root-(3*WSIZE), NULL)
+	// (*((unsigned int *) (root-(3*WSIZE))) = (NULL))
 	SET_RIGHT(root, NULL);			//Set right pointer
 	SET_SIZE(root, 0);			//Set size of base node
 	
@@ -126,6 +136,7 @@ int mm_init(void)
 		return -1;
 
 	return 0;
+
 }
 
 /* 
@@ -134,6 +145,7 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
+
 	size_t asize; 		// Adjusted block size
 	size_t extendsize; 	// Amount to extend heap if no fit
 	char *bp;
@@ -160,6 +172,7 @@ void *mm_malloc(size_t size)
 		return NULL;
 	place(bp, asize);
 	return bp;
+
 }
 
 /*
@@ -167,11 +180,13 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
+
 	size_t size = GET_SIZE(HDRP(ptr));
 	
 	PUT(HDRP(ptr), PACK(size, 0));
 	PUT(FTRP(ptr), PACK(size, 0));
 	coalesce(ptr);
+
 }
 
 /*
@@ -206,8 +221,8 @@ static void *extend_heap(size_t words) {
 	//Init free block header/footer and the epilogue header
 	//SET_RIGHT(root, bp); //add to tree
 	SET_LEFT(bp, NULL);			//Set left pointer
-	SET_RIGHT(BP, NULL);			//Set right pointer
-	SET_SIZE(BP, size-(3*WSIZE));		//Set size of base node
+	SET_RIGHT(bp, NULL);			//Set right pointer
+	SET_SIZE(bp, size-(3*WSIZE));		//Set size of base node
 
 	return coalesce(bp);
 }
@@ -270,3 +285,11 @@ static void place (void *bp, size_t asize) {
 		PUT(FTRP(bp), PACK(csize, 1));
 	}
 } 
+
+static void unit() {
+	string method = "GET_LEFT()";
+	bool result;
+	bool allPassed = true;
+
+	char* bp = malloc(
+}
