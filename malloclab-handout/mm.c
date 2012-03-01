@@ -14,7 +14,6 @@
 #include <assert.h>
 #include <unistd.h>
 #include <string.h>
-
 #include "mm.h"
 #include "memlib.h"
 
@@ -74,32 +73,23 @@ team_t team = {
 
 
 /* Node macros */
-#define SET_LEFT(p, addr)	PUT(p-(3*WSIZE), addr)
-#define SET_RIGHT(p, addr)	PUT(p-(2*WSIZE), addr)
-#define SET_SIZE(p, size) 	PUT(p-WSIZE, PACK_T(size, GET_ALLOC(p), GET_RB(p)))
-#define SET_PARENT(p, addr)	PUT(p+GET_SIZE(p), addr)
-#define SET_ALLOC(p, alloc)	PUT(p-WSIZE, PACK(GET_SIZE(p), alloc. GET_RB(p))
+#define MC(p)			((char*) (p))
+#define SET_LEFT(p, addr)	PUT(MC(p)-(3*WSIZE), addr)
+#define SET_RIGHT(p, addr)	PUT(MC(p)-(2*WSIZE), addr)
+#define SET_SIZE(p, size) 	PUT(MC(p)-WSIZE, PACK_T(size, GET_ALLOC_T(p), GET_RB(p)))
+#define SET_PARENT(p, addr)	PUT(MC(p)+GET_SIZE_T(p), addr)
+#define SET_ALLOC(p, alloc)	PUT(MC(p)-WSIZE, PACK(GET_SIZE_T(p), alloc. GET_RB(p))
 #define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
 
-#define GET_LEFT(p)		GET(p-3*(WSIZE))
-#define GET_RIGHT(p)		GET(p-2*(WSIZE))
-#define GET_ALLOC_T(p)		GET(p-1*(WSIZE)) & 0x01
-#define GET_SIZE_T(p)		GET(p-1*(WSIZE)) & ~0x11
-#define GET_RB(p)		GET(p-1*(WSIZE)) & 0x10
-#define GET_PARENT(p)		GET(p+GET_SIZE(p))
-#define GET_LAST(p)		(GET_NEXT(GET_LEFT(p-WSIZE)) == p) ? (GET_LEFT(p-WSIZE)) : (GET_LEFT(p-WSIZE)))
-#define GET_NEXT(p)		(p+4+GET_SIZE(p))
+#define GET_LEFT(p)		GET(MC(p)-3*(WSIZE))
+#define GET_RIGHT(p)		GET(MC(p)-2*(WSIZE))
+#define GET_ALLOC_T(p)		(GET(MC(p)-1*(WSIZE)) & 0x1)
+#define GET_SIZE_T(p)		(GET(MC(p)-1*(WSIZE)) & ~0x3)
+#define GET_RB(p)		(GET(MC(p)-1*(WSIZE)) & 0x2)
+#define GET_PARENT(p)		GET(MC(p)+GET_SIZE_T(p))
+#define GET_LAST(p)		(GET_NEXT(GET_LEFT(MC(p)-WSIZE)) == p) ? (GET_LEFT(MC(p)-WSIZE)) : (GET_LEFT(MC(p)-WSIZE)))
+#define GET_NEXT(p)		(MC(p)+4+GET_SIZE(p))
 
-
-
-
-
-//methods
-static void *extend_heap(size_t words);
-static void *coalesce(void *bp);
-static void *find_fit(size_t asize);
-static void place(void *bp, size_t asize);
-static void unit();
 
 //private global pointers
 static void *heap_listp;
@@ -287,10 +277,239 @@ static void place (void *bp, size_t asize) {
 	}
 } 
 
-static void unit() {
-	string method = "GET_LEFT()";
-	bool result;
-	bool allPassed = true;
 
-	char* bp = malloc(
+void unit() {
+	printf("Testing Nodes\n");
+	char method[30];
+	strcpy(method, "SET_LEFT()");
+	int result;
+	int allPassed = 1;
+	int test = 1;
+
+	int* bp = malloc(23*sizeof(int));
+	int* left = bp+3;
+	int* root = left+5;
+	int * right = root+6;
+	int* leaf = right+7;
+
+	SET_LEFT(left, leaf);
+	SET_LEFT(right, NULL);
+	SET_LEFT(root, left);
+	SET_LEFT(leaf, NULL);
+	
+	result = bp[0] == leaf;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = bp[5] == left;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = bp[11] == NULL;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = bp[18] == NULL;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+
+
+
+
+
+	
+	strcpy(method, "GET_LEFT()");
+
+	result = GET_LEFT(left) == leaf;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_LEFT(root) == left;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_LEFT(right) == NULL;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_LEFT(leaf) == NULL;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+
+
+	strcpy(method, "SET_RIGHT()");
+
+	SET_RIGHT(left, NULL);
+	SET_RIGHT(right, NULL);
+	SET_RIGHT(root, right);
+	SET_RIGHT(leaf, NULL);
+
+	result = bp[1] == 0;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = bp[6] == right;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = bp[12] == 0;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = bp[19] == 0;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+
+
+
+	strcpy(method, "GET_RIGHT()");
+
+	result = GET_RIGHT(left) == 0;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_RIGHT(root) == right;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_RIGHT(right) == 0;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_RIGHT(leaf) == 0;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+
+
+
+	strcpy(method, "SET_SIZE()");
+
+	SET_SIZE(left, 1*WSIZE);
+	SET_SIZE(right, 3*WSIZE);
+	SET_SIZE(root, 2*WSIZE);
+	SET_SIZE(leaf, 1*WSIZE);
+
+	result = (bp[2] & ~0x3) == 4;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = (bp[7] & ~0x3) == 8;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = (bp[13] & ~0x3) == 12;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = (bp[20] & ~0x3) == 4;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+
+
+
+
+	strcpy(method, "GET_SIZE_T()");
+
+	printf("GET_SIZE_T: %d\n", GET_SIZE_T(left));
+	result = (GET_SIZE_T(left)) == 4;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_SIZE_T(root) == 8;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_SIZE_T(right) == 12;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+	result = GET_SIZE_T(leaf) == 4;
+	if (!result) {
+		printf("Test %d failed for method %s\n", test, method);
+		allPassed = 0;
+	}
+	test++;
+
+
+
+
+
+
+	if(allPassed) {
+		printf("All %d tests passed\n\n", test-1);
+	}
 }

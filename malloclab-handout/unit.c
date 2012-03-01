@@ -1,7 +1,8 @@
 #include <stdio.h>
+#include "mm.h"
 
 int main() {
-	printf("HI");
+	unit();
 	return 0;
 }
 
