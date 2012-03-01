@@ -81,11 +81,11 @@ team_t team = {
 #define GET_LEFT(p)		GET(p-3*(WSIZE))
 #define GET_RIGHT(p)		GET(p-2*(WSIZE))
 #define GET_ALLOC(p)		GET(p-1*(WSIZE) & 0x01)
-#define GET_SIZE(p)		
-#define GET_RB(p)		
-#define GET_PARENT(p)		
-#define GET_LAST(p)		
-#define GET_NEXT(p)		
+#define GET_SIZE(p)		GET(p-1*(WSIZE) & ~0x11)
+#define GET_RB(p)		GET(p-1*(WSIZE) & 0x10)
+#define GET_PARENT(p)		GET(p+GET_SIZE(p))
+#define GET_LAST(p)		(GET_NEXT(GET_LEFT(p-WSIZE)) == p) ? (GET_LEFT(p-WSIZE)) : (GET_LEFT(p-WSIZE)))
+#define GET_NEXT(p)		(p+4+GET_SIZE(p))
 
 //methods
 static void *extend_heap(size_t words);
