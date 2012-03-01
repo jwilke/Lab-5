@@ -42,15 +42,15 @@ team_t team = {
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 // Pack a size and allocated bit into a word
-//#define PACK(size, alloc) ((size) | (alloc))
+#define PACK(size, alloc) ((size) | (alloc))
 
 // Read and write a word at address p
 #define GET(p)	(*(unsigned int *) (p))
 #define PUT(p, val) (*(unsigned int *) (p) = (val))
 
 //Read the size and allocated fields from address p
-//#define GET_SIZE(p) 	(GET(p) & ~0x7)
-//#define GET_ALLOC(p) 	(GET(p) & 0x1)
+#define GET_SIZE(p) 	(GET(p) & ~0x7)
+#define GET_ALLOC(p) 	(GET(p) & 0x1)
 
 // Given block ptr bp, compute address of its header and footer
 #define HDRP(bp) 	((char *)(bp) - WSIZE)
@@ -76,12 +76,12 @@ team_t team = {
 #define SET_SIZE(p, size) 	PUT(p-WSIZE, PACK(size, GET_ALLOC(p), GET_RB(p))
 #define SET_PARENT(p, addr)	PUT(p+GET_SIZE(p), addr)
 #define SET_ALLOC(p, alloc)	PUT(p-WSIZE, PACK(GET_SIZE(p), alloc. GET_RB(p))
-#define PACK(size, alloc, RB) 	((size) | (!!alloc) | ((!!RB)<<1))
+#define PACK_T(size, alloc, RB) ((size) | (!!alloc) | ((!!RB)<<1))
 
 #define GET_LEFT(p)		GET(p-3*(WSIZE))
 #define GET_RIGHT(p)		GET(p-2*(WSIZE))
-#define GET_ALLOC(p)		GET(p-1*(WSIZE) & 0x01)
-#define GET_SIZE(p)		GET(p-1*(WSIZE) & ~0x11)
+#define GET_ALLOC_T(p)		GET(p-1*(WSIZE) & 0x01)
+#define GET_SIZE_T(p)		GET(p-1*(WSIZE) & ~0x11)
 #define GET_RB(p)		GET(p-1*(WSIZE) & 0x10)
 #define GET_PARENT(p)		GET(p+GET_SIZE(p))
 #define GET_LAST(p)		(GET_NEXT(GET_LEFT(p-WSIZE)) == p) ? (GET_LEFT(p-WSIZE)) : (GET_LEFT(p-WSIZE)))
