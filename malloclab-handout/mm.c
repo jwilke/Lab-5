@@ -88,7 +88,8 @@ team_t team = {
 #define GET_SIZE_T(p)		(GET(MC(p)-1*(WSIZE)) & ~0x3)
 #define GET_RB(p)		(GET(MC(p)-1*(WSIZE)) & 0x2)
 #define GET_PARENT(p)		GET(MC(p)+GET_SIZE_T(p))
-#define GET_LAST(p)		((GET_LEFT( GET(MC(p)-4*WSIZE)) == p ) ? (GET_LEFT(GET(MC(p)-4*WSIZE))) : (GET_RIGHT(GET(MC(p)-4*WSIZE))))
+//#define GET_LAST(p)		((GET_LEFT( GET(MC(p)-4*WSIZE)) == p ) ? (GET_LEFT(GET(MC(p)-4*WSIZE))) : (GET_RIGHT(GET(MC(p)-4*WSIZE))))
+#define GET_LAST(p)		get_last(p)
 #define GET_NEXT(p)		((MC(p)+4*WSIZE+GET_SIZE_T(p)))
 
 
@@ -278,8 +279,40 @@ static void place (void *bp, size_t asize) {
 	}
 } 
 
+int * get_last(int * bp) {
+
+	int addr = MC(bp)-4*WSIZE;
+
+	if (GET_NEXT(root) == bp)
+		return root;
+
+	if (addr == 0) {
+		return NULL;
+	}
+
+	int *last_parent = GET(addr);
+
+	if (last_parent == 0) 
+		return NULL;
+
+	int *parent_left = GET_LEFT(last_parent);
+	
+	if (parent_left != NULL && GET_NEXT(parent_left) == bp) {
+		return parent_left;
+	}
+
+	int *parent_right = GET_RIGHT(last_parent);
+
+	if (parent_left != NULL && GET_NEXT(parent_right) == bp) {
+		return parent_right;
+	}
+
+	//either allocated or root
+	return NULL;
+}
+
 void printVerbose(int exp, int result) {
-  printf("expected: \t%d\ngot:\t\t%d\n", exp, result);
+  	printf("expected: \t%d\ngot:\t\t%d\n", exp, result);
 }
 
 void unit(int verbose) {
@@ -292,13 +325,16 @@ void unit(int verbose) {
 
 	int* bp = malloc(23*sizeof(int));
 	int* left = bp+3;
-	int* root = left+5;
-	int * right = root+6;
+	int* rootr = left+5;
+	int * right = rootr+6;
 	int* leaf = right+7;
+
+	root = rootr;
+
 
 	SET_LEFT(left, leaf);
 	SET_LEFT(right, NULL);
-	SET_LEFT(root, left);
+	SET_LEFT(rootr, left);
 	SET_LEFT(leaf, NULL);
 	
 	result = bp[0] == leaf;
@@ -344,7 +380,7 @@ void unit(int verbose) {
 	}
 	test++;
 
-	result = GET_LEFT(root) == left;
+	result = GET_LEFT(rootr) == left;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
 		allPassed = 0;
@@ -371,7 +407,7 @@ void unit(int verbose) {
 
 	SET_RIGHT(left, NULL);
 	SET_RIGHT(right, NULL);
-	SET_RIGHT(root, right);
+	SET_RIGHT(rootr, right);
 	SET_RIGHT(leaf, NULL);
 
 	result = bp[1] == 0;
@@ -414,7 +450,7 @@ void unit(int verbose) {
 	}
 	test++;
 
-	result = GET_RIGHT(root) == right;
+	result = GET_RIGHT(rootr) == right;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
 		allPassed = 0;
@@ -442,7 +478,7 @@ void unit(int verbose) {
 
 	SET_SIZE(left, 1*WSIZE);
 	SET_SIZE(right, 3*WSIZE);
-	SET_SIZE(root, 2*WSIZE);
+	SET_SIZE(rootr, 2*WSIZE);
 	SET_SIZE(leaf, 1*WSIZE);
 
 	result = (bp[2] & ~0x3) == 4;
@@ -486,7 +522,7 @@ void unit(int verbose) {
 	}
 	test++;
 
-	result = GET_SIZE_T(root) == 8;
+	result = GET_SIZE_T(rootr) == 8;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
 		allPassed = 0;
@@ -554,7 +590,7 @@ void unit(int verbose) {
         test++;
 
 	bp[7] = (bp[7] & ~0x2) | (2);
-	result = (GET_RB(root));
+	result = (GET_RB(rootr));
 	if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
@@ -586,7 +622,7 @@ void unit(int verbose) {
 	strcpy(method, "SET_RB()");
 
 	SET_RB(left, 1);
-	SET_RB(root, 1);
+	SET_RB(rootr, 1);
 	SET_RB(right, 0);
 	SET_RB(leaf, 0);
 
@@ -598,7 +634,7 @@ void unit(int verbose) {
         }
         test++;
 
-	result = (GET_RB(root));
+	result = (GET_RB(rootr));
 	if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
@@ -625,7 +661,7 @@ void unit(int verbose) {
 	strcpy(method, "SET_RB()");
 
         SET_ALLOC(left, 1);
-        SET_ALLOC(root, 2);
+        SET_ALLOC(rootr, 2);
         SET_ALLOC(right, 0);
         SET_ALLOC(leaf, 0);
 
@@ -637,7 +673,7 @@ void unit(int verbose) {
         }
         test++;
 
-	result = (GET_ALLOC_T(root));
+	result = (GET_ALLOC_T(rootr));
 	if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
@@ -664,16 +700,16 @@ void unit(int verbose) {
 
         strcpy(method, "SET_PARENT()");
 
-        SET_PARENT(left, root);
-        SET_PARENT(root, 0);
-        SET_PARENT(right, root);
+        SET_PARENT(left, rootr);
+        SET_PARENT(rootr, 0);
+        SET_PARENT(right, rootr);
         SET_PARENT(leaf, left);
 
-        result = bp[4] == root;
+        result = bp[4] == rootr;
 	if (!result) {
           printf("Test %d failed for method %s\n", test, method);
 	  allPassed = 0;
-	  if(verbose) printVerbose(root, bp[4]);
+	  if(verbose) printVerbose(rootr, bp[4]);
         }
         test++;
 
@@ -685,11 +721,11 @@ void unit(int verbose) {
         }
         test++;
 
-        result = bp[17] == root;
+        result = bp[17] == rootr;
         if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(root, bp[17]);
+          if(verbose) printVerbose(rootr, bp[17]);
         }
         test++;
 
@@ -706,7 +742,7 @@ void unit(int verbose) {
 
 	strcpy(method, "SET_PARENT()");
 
-        result = (GET_PARENT(left)) == root;
+        result = (GET_PARENT(left)) == rootr;
         if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
@@ -714,7 +750,7 @@ void unit(int verbose) {
         }
         test++;
 
-	result = (GET_PARENT(root)) == 0;
+	result = (GET_PARENT(rootr)) == 0;
 	if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
@@ -722,7 +758,7 @@ void unit(int verbose) {
         }
         test++;
 
-	result = (GET_PARENT(right)) == root;
+	result = (GET_PARENT(right)) == rootr;
 	if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
@@ -741,7 +777,7 @@ void unit(int verbose) {
 
         strcpy(method, "GET_NEXT()");
 
-	result = GET_NEXT(left) == root;
+	result = GET_NEXT(left) == rootr;
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
@@ -749,11 +785,11 @@ void unit(int verbose) {
         }
         test++;
 
-	result = GET_NEXT(root) == right;
+	result = GET_NEXT(rootr) == right;
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(right, GET_NEXT(root));
+          if(verbose) printVerbose(right, GET_NEXT(rootr));
         }
         test++;
 
@@ -769,9 +805,8 @@ void unit(int verbose) {
 
 
         strcpy(method, "GET_LAST()");
-	int * r = ((GET_LEFT( GET(MC(root)-4*WSIZE)) == root ) ? (GET_LEFT(GET(MC(root)-4*WSIZE))) : (GET_RIGHT(GET(MC(root)-4*WSIZE))));
-	printf("(GET_LEFT( GET(MC(root)-4*WSIZE)) == root: %d\n", (GET_LEFT( GET(MC(root)-4*WSIZE)) == root) );
-	printf("4*WSIZE == root: %d\n", (GET_LEFT( GET(MC(root)-4*WSIZE)) == root) );
+
+	int * r = GET_LAST(rootr);
 	result = r == left;
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
@@ -779,12 +814,12 @@ void unit(int verbose) {
           if(verbose) printVerbose(left, r);
         }
         test++;
-/*
-	result = GET_LAST(right) == root;
+
+	result = GET_LAST(right) == rootr;
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(right, GET_NEXT(root));
+          if(verbose) printVerbose(rootr, GET_NEXT(right));
         }
         test++;
 
@@ -795,7 +830,7 @@ void unit(int verbose) {
           if(verbose) printVerbose(leaf, GET_NEXT(right));
         }
         test++;
-*/
+
 
 
 /* Node macros
@@ -825,4 +860,5 @@ void unit(int verbose) {
 	if(allPassed) {
 		printf("All %d tests passed\n\n", test-1);
 	}
+	free(bp);
 }
