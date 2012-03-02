@@ -82,15 +82,14 @@ team_t team = {
 #define SET_RB(p, rb)           PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC(p), rb ) )
 #define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
 
-#define GET_LEFT(p)		GET(MC(p)-3*(WSIZE))
-#define GET_RIGHT(p)		GET(MC(p)-2*(WSIZE))
+#define GET_LEFT(p)		( (int *) GET(MC(p)-3*(WSIZE)) )
+#define GET_RIGHT(p)		( (int *) GET(MC(p)-2*(WSIZE)) )
 #define GET_ALLOC_T(p)		(GET(MC(p)-1*(WSIZE)) & 0x1)
 #define GET_SIZE_T(p)		(GET(MC(p)-1*(WSIZE)) & ~0x3)
 #define GET_RB(p)		((GET(MC(p)-1*(WSIZE)) & 0x2) >> 1)
-#define GET_PARENT(p)		GET(MC(p)+GET_SIZE_T(p))
-//#define GET_LAST(p)		((GET_LEFT( GET(MC(p)-4*WSIZE)) == p ) ? (GET_LEFT(GET(MC(p)-4*WSIZE))) : (GET_RIGHT(GET(MC(p)-4*WSIZE))))
+#define GET_PARENT(p)		( (int *) GET(MC(p)+GET_SIZE_T(p)) )
 #define GET_LAST(p)		get_last(p)
-#define GET_NEXT(p)		((MC(p)+4*WSIZE+GET_SIZE_T(p)))
+#define GET_NEXT(p)		( (int *) ((MC(p)+4*WSIZE+GET_SIZE_T(p))) )
 
 
 //private global pointers
