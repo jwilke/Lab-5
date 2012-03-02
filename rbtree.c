@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-struct node {
+struct lnode {
 	int *data;
-	struct node * next;
+	struct lnode * next;
 };
 
 #define WSIZE 4			// Word and header/footer size (in bytes)
@@ -41,9 +41,6 @@ struct node {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-
-
-
 /* Node macros */
 #define MC(p)			((char*) (p))
 #define SET_LEFT(p, addr)	PUT(MC(p)-(3*WSIZE), addr)
@@ -77,8 +74,13 @@ int insert(int * node);
 int* find(int nsize); // find the parent that leaf of size nsize would have
 int* rem_delete(int size);
 void delete(int *node);
-void print_tree_level(struct node* olist);
+void print_tree_level(struct lnode* olist);
+int* get_sibling(int* node);
+void icase1(int * node);
 void icase2(int * node);
+void icase3(int * node);
+void icase4(int * node);
+void icase5(int * node);
 
 #define MAX_BYTES 512
 
@@ -103,7 +105,6 @@ int main() {
 	SET_PARENT(temp, NULL);
 
 	insert(temp);
-	print_node(root);
 
 	temp = (int*)GET_NEXT(temp);
 
@@ -115,7 +116,11 @@ int main() {
 	SET_PARENT(temp, NULL);
 
 	insert(temp);
-	print_node(root);
+
+	struct lnode* printtree = malloc(sizeof(struct lnode));
+	printtree->data = root;
+	printtree->next = NULL;
+	print_tree_level(printtree);
 
 
 	free(bp);
@@ -123,11 +128,11 @@ int main() {
 }
 
 void print_node(int * node) {
-	printf("\nNODE:\nLEFT: %d\n", GET_LEFT(node));
-	printf("RIGHT: %d\n", GET_RIGHT(node));
+	printf("\nNODE:\nLEFT: %p\n", GET_LEFT(node));
+	printf("RIGHT: %p\n", GET_RIGHT(node));
 	printf("SIZE: %d\n", GET_SIZE_T(node));
 	printf("RB: %d\n", GET_RB(node));
-	printf("PARENT: %d\n", GET_PARENT(node));
+	printf("PARENT: %p\n", GET_PARENT(node));
 	return;
 }
 
@@ -140,14 +145,15 @@ int insert(int * node) {  //assumes header/footer is already created
 	SET_SIZE(node, size);
 	SET_RB(node, RED);
 	SET_ALLOC(node, 0);
-	num_nodes++;
 
-	if(num_nodes == 0) {  //base case
+	if(num_nodes == 0) {
+		num_nodes++;
 		root = node;
 		SET_RB(root, BLACK);
 		SET_PARENT(root, NULL);
 		return 1;
 	}
+	num_nodes++;
 
 	int* parent = find(size);
 	if(size <= GET_SIZE_T(parent)) {
@@ -157,21 +163,49 @@ int insert(int * node) {  //assumes header/footer is already created
 		SET_RIGHT(parent, node);
 		SET_PARENT(node, parent);
 	}
-	
+	icase1(node);
 
-	if(GET_RB(parent) == BLACK) {  // case 1
-		return 1;
-	}
+	return 0;
+}
 
-	if(GET_RB(parent) == RED) { // case 2 and 3
+void icase1(int * node) {
+	if(GET_PARENT(node) == NULL) {
+		SET_RB(node, BLACK);
+	} else {
 		icase2(node);
 	}
-
-	return -1;
 }
 
 void icase2(int * node) {
-	return;
+	int* parent = GET_PARENT(node);
+	if(GET_RB(parent) == BLACK)
+		return;
+	else icase3(node);
+}
+
+void icase3(int * node) {
+	int* parent = GET_PARENT(node);
+	int* u = get_sibling(parent); //uncle
+	
+	if( (u != NULL) && (GET_RB(u) == RED)) {
+		SET_RB(parent, BLACK);		// set parent to black
+		SET_RB(u, BLACK);		// set uncle to black
+		SET_RB(GET_PARENT(parent),RED); // set grandparent to red
+		icase1(GET_PARENT(parent));     // check if grandparent is good
+	} else {
+		icase4(node);
+	}
+}
+
+void icase4(int * node) {
+	int p = GET_PARENT(node);
+	int gp =  GET_PARENT(p);
+	
+	
+}
+
+void rotate_clock(int * node) {
+	
 }
 
 
@@ -207,40 +241,53 @@ void delete(int *node) {
 }
 
 int* get_sibling(int* node) {
-	int* parent = (int*)GET_PARENT(node);
+	int* parent = GET_PARENT(node);
 	if(parent == 0) return NULL;
 
 	if((int*)GET_LEFT(parent) == node) {
-		return (int *) GET_RIGHT(parent);
+		return GET_RIGHT(parent);
 	}
-	return (int*) GET_LEFT(parent);
+	return GET_LEFT(parent);
 }
 
-void print_tree_level(struct node* olist) {
-	struct node* nlist = malloc(sizeof(struct node));
-	struct node* cur = nlist;
+void print_tree_level(struct lnode* olist) {
+	struct lnode* nlist = malloc(sizeof(struct lnode));
+	nlist->data = NULL;
+	nlist->next = NULL;
+	struct lnode* cur = nlist;
+	if(olist->data == NULL) return;
+	struct lnode* temp;
+	char color = 'R';
 	
 	while(olist != NULL) {
-		printf("%d%d ", (int)GET_SIZE_T(olist->data), (int)GET_RB(olist->data));
+		if(GET_RB(olist->data) == 0) color = 'B';
+		else color = 'R';
+
+		printf("%d:%c ", GET_SIZE_T(olist->data), color);
 		if(GET_LEFT(olist->data) != NULL) {
-			struct node temp = malloc(sizeof(struct node));
+			temp = malloc(sizeof(struct lnode));
 			temp->data = GET_LEFT(olist->data);
 			temp->next = NULL;
 			nlist->next = temp;
 			nlist = nlist->next;
 		}
 		if(GET_RIGHT(olist->data) != NULL) {
-			struct node temp = malloc(sizeof(struct node));
+			temp = malloc(sizeof(struct lnode));
 			temp->data = GET_RIGHT(olist->data);
 			temp->next = NULL;
 			nlist->next = temp;
 			nlist = nlist->next;
 		}
-		struct node * root = olist->next;
+		struct lnode * f = olist->next;
 		free(olist);
-		olist = root;
+		olist = f;
 	}
-
+	if(cur->next != NULL && cur->data == NULL) {
+		struct lnode * f = cur->next;
+		free(cur);
+		cur = f;
+	}
+	printf("\n");
 	print_tree_level(cur);
 }
 
