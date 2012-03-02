@@ -1,3 +1,9 @@
+/*
+TODO:
+complete the rest of the insertion cases, just finished case 3;
+start and finish rem_delete and delete;
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -81,6 +87,8 @@ void icase2(int * node);
 void icase3(int * node);
 void icase4(int * node);
 void icase5(int * node);
+void rotate_clock(int * node);
+void rotate_counter_clock(int * node);
 
 #define MAX_BYTES 512
 
@@ -198,14 +206,39 @@ void icase3(int * node) {
 }
 
 void icase4(int * node) {
-	int p = GET_PARENT(node);
-	int gp =  GET_PARENT(p);
+	//int p = GET_PARENT(node);
+	//int gp =  GET_PARENT(p);
 	
 	
 }
 
+void icase5(int * node) {	
+}
+
 void rotate_clock(int * node) {
-	
+	int* p = GET_PARENT(node);
+	int* g = GET_PARENT(node);
+	int go_left = (GET_RIGHT(g) == p);
+	int* r = GET_RIGHT(node);
+
+	if(go_left) SET_LEFT(g, node);
+	else SET_RIGHT(g, node);
+
+	SET_LEFT(p,r);
+	SET_RIGHT(node, p);
+}
+
+void rotate_counter_clock(int * node) {
+	int* p = GET_PARENT(node);
+	int* g = GET_PARENT(node);
+	int go_left = (GET_RIGHT(g) == p);
+	int* l = GET_LEFT(node);
+
+	if(go_left) SET_LEFT(g, node);
+	else SET_RIGHT(g, node);
+
+	SET_RIGHT(p,l);
+	SET_LEFT(node, p);
 }
 
 
