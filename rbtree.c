@@ -1,47 +1,67 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+struct node {
+	int *data;
+	struct node * next;
+};
+
 #define WSIZE 4			// Word and header/footer size (in bytes)
 #define DSIZE 8			// Double word size (in bytes)
 #define CHUNKSIZE (1<<12)	// Extend heap by this amount (in bytes)
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
+// Pack a size and allocated bit into a word
+#define PACK(size, alloc) ((size) | (alloc))
+
 // Read and write a word at address p
 #define GET(p)	(*((unsigned int *) (p)))
 #define PUT(p, val) (*((unsigned int *) (p)) = ((unsigned int) val))
-
-/* single word (4) or double word (8) alignment */
-#define ALIGNMENT 4
 
 //Read the size and allocated fields from address p
 #define GET_SIZE(p) 	(GET(p) & ~0x7)
 #define GET_ALLOC(p) 	(GET(p) & 0x1)
 
+// Given block ptr bp, compute address of its header and footer
+#define HDRP(bp) 	((char *)(bp) - WSIZE)
+#define FTRP(bp) 	((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
+
+//Give block ptr bp, compute address of next and previous blocks
+#define NEXT_BLKP(bp) 	((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
+#define PREV_BLKP(bp)	((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
+
+
+/* single word (4) or double word (8) alignment */
+#define ALIGNMENT 8
+
 /* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x3)
+#define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
+
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
+
+
+
 /* Node macros */
 #define MC(p)			((char*) (p))
-#define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
 #define SET_LEFT(p, addr)	PUT(MC(p)-(3*WSIZE), addr)
 #define SET_RIGHT(p, addr)	PUT(MC(p)-(2*WSIZE), addr)
 #define SET_SIZE(p, size) 	PUT(MC(p)-WSIZE, PACK_T(size, GET_ALLOC_T(p), GET_RB(p)))
 #define SET_PARENT(p, addr)	PUT(MC(p)+GET_SIZE_T(p), addr)
 #define SET_ALLOC(p, alloc)	PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), alloc, GET_RB(p) ) )
 #define SET_RB(p, rb)           PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC(p), rb ) )
+#define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
 
-
-#define GET_LEFT(p)		GET(MC(p)-3*(WSIZE))
-#define GET_RIGHT(p)		GET(MC(p)-2*(WSIZE))
+#define GET_LEFT(p)		( (int *) GET(MC(p)-3*(WSIZE)) )
+#define GET_RIGHT(p)		( (int *) GET(MC(p)-2*(WSIZE)) )
 #define GET_ALLOC_T(p)		(GET(MC(p)-1*(WSIZE)) & 0x1)
 #define GET_SIZE_T(p)		(GET(MC(p)-1*(WSIZE)) & ~0x3)
 #define GET_RB(p)		((GET(MC(p)-1*(WSIZE)) & 0x2) >> 1)
-#define GET_PARENT(p)		GET(MC(p)+GET_SIZE_T(p))
-#define GET_LAST(p)		((GET_LEFT( GET(MC(p)-4*WSIZE)) == p ) ? (GET_LEFT(GET(MC(p)-4*WSIZE))) : (GET_RIGHT(GET(MC(p)-4*WSIZE))))
-#define GET_NEXT(p)		((MC(p)+4*WSIZE+GET_SIZE_T(p)))
+#define GET_PARENT(p)		( (int *) GET(MC(p)+GET_SIZE_T(p)) )
+#define GET_LAST(p)		get_last(p)
+#define GET_NEXT(p)		( (int *) ((MC(p)+4*WSIZE+GET_SIZE_T(p))) )
 
 #define OVERHEAD 16
 
@@ -57,7 +77,8 @@ int insert(int * node);
 int* find(int nsize); // find the parent that leaf of size nsize would have
 int* rem_delete(int size);
 void delete(int *node);
-void print_tree_level();
+void print_tree_level(struct node* olist);
+void icase2(int * node);
 
 #define MAX_BYTES 512
 
@@ -150,7 +171,7 @@ int insert(int * node) {  //assumes header/footer is already created
 }
 
 void icase2(int * node) {
-	
+	return;
 }
 
 
@@ -189,10 +210,68 @@ int* get_sibling(int* node) {
 	int* parent = (int*)GET_PARENT(node);
 	if(parent == 0) return NULL;
 
-	int size = GET_SIZE_T(node);
-	int psize = GET_SIZE_T(GET_PARENT(node));
 	if((int*)GET_LEFT(parent) == node) {
 		return (int *) GET_RIGHT(parent);
 	}
 	return (int*) GET_LEFT(parent);
 }
+
+void print_tree_level(struct node* olist) {
+	struct node* nlist = malloc(sizeof(struct node));
+	struct node* cur = nlist;
+	
+	while(olist != NULL) {
+		printf("%d%d ", (int)GET_SIZE_T(olist->data), (int)GET_RB(olist->data));
+		if(GET_LEFT(olist->data) != NULL) {
+			struct node temp = malloc(sizeof(struct node));
+			temp->data = GET_LEFT(olist->data);
+			temp->next = NULL;
+			nlist->next = temp;
+			nlist = nlist->next;
+		}
+		if(GET_RIGHT(olist->data) != NULL) {
+			struct node temp = malloc(sizeof(struct node));
+			temp->data = GET_RIGHT(olist->data);
+			temp->next = NULL;
+			nlist->next = temp;
+			nlist = nlist->next;
+		}
+		struct node * root = olist->next;
+		free(olist);
+		olist = root;
+	}
+
+	print_tree_level(cur);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
