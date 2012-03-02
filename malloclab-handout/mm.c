@@ -78,7 +78,8 @@ team_t team = {
 #define SET_RIGHT(p, addr)	PUT(MC(p)-(2*WSIZE), addr)
 #define SET_SIZE(p, size) 	PUT(MC(p)-WSIZE, PACK_T(size, GET_ALLOC_T(p), GET_RB(p)))
 #define SET_PARENT(p, addr)	PUT(MC(p)+GET_SIZE_T(p), addr)
-#define SET_ALLOC(p, alloc)	PUT(MC(p)-WSIZE, PACK(GET_SIZE_T(p), alloc. GET_RB(p))
+#define SET_ALLOC(p, alloc)	PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), alloc, GET_RB(p) ) )
+#define SET_RB(p, rb)           PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC(p), rb ) )
 #define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
 
 #define GET_LEFT(p)		GET(MC(p)-3*(WSIZE))
@@ -87,8 +88,8 @@ team_t team = {
 #define GET_SIZE_T(p)		(GET(MC(p)-1*(WSIZE)) & ~0x3)
 #define GET_RB(p)		(GET(MC(p)-1*(WSIZE)) & 0x2)
 #define GET_PARENT(p)		GET(MC(p)+GET_SIZE_T(p))
-#define GET_LAST(p)		(GET_NEXT(GET_LEFT(MC(p)-WSIZE)) == p) ? (GET_LEFT(MC(p)-WSIZE)) : (GET_LEFT(MC(p)-WSIZE)))
-#define GET_NEXT(p)		(MC(p)+4+GET_SIZE(p))
+#define GET_LAST(p)		((GET_LEFT( GET(MC(p)-4*WSIZE)) == p ) ? (GET_LEFT(GET(MC(p)-4*WSIZE))) : (GET_RIGHT(GET(MC(p)-4*WSIZE))))
+#define GET_NEXT(p)		((MC(p)+4*WSIZE+GET_SIZE_T(p)))
 
 
 //private global pointers
@@ -277,9 +278,12 @@ static void place (void *bp, size_t asize) {
 	}
 } 
 
+void printVerbose(int exp, int result) {
+  printf("expected: \t%d\ngot:\t\t%d\n", exp, result);
+}
 
-void unit() {
-	printf("Testing Nodes\n");
+void unit(int verbose) {
+	printf("\nTesting Nodes\n");
 	char method[30];
 	strcpy(method, "SET_LEFT()");
 	int result;
@@ -475,7 +479,6 @@ void unit() {
 
 	strcpy(method, "GET_SIZE_T()");
 
-	printf("GET_SIZE_T: %d\n", GET_SIZE_T(left));
 	result = (GET_SIZE_T(left)) == 4;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
@@ -504,6 +507,316 @@ void unit() {
 	}
 	test++;
 
+
+
+	strcpy(method, "GET_ALLOC_T()");
+
+	bp[2] = (bp[2] & ~0x1) | (1);
+	  result = (GET_ALLOC_T(left)) == 1;
+        if (!result) {
+	  printf("Test %d failed for method %s\n", test, method);
+	  allPassed = 0;
+	  if(verbose) printVerbose(5, bp[2]);
+        }
+        test++;
+
+	bp[7] =(bp[7] & ~0x1) | (1);
+	  result = (GET_ALLOC_T(left)) == 1;
+        if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(5, bp[2]);
+        }
+        test++;
+
+	bp[20] =(bp[20] & ~0x1) | (0);
+	  result = (GET_ALLOC_T(left)) == 1;
+        if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(5, bp[2]);
+        }
+        test++;
+
+
+
+
+
+        strcpy(method, "GET_RB()");
+
+        bp[2] = (bp[2] & ~0x2) | (2);
+	result = (GET_RB(left));
+        if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+        }
+        test++;
+
+	bp[7] = (bp[7] & ~0x2) | (2);
+	result = (GET_RB(root));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(10, bp[7]);
+        }
+        test++;
+
+	bp[13] = (bp[13] & ~0x2);
+	result = !(GET_RB(right));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(12, bp[13]);
+        }
+        test++;
+
+	bp[2] = (bp[20] & ~0x2);
+	result = !(GET_RB(leaf));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(4, bp[20]);
+        }
+        test++;
+
+
+
+
+	strcpy(method, "SET_RB()");
+
+	SET_RB(left, 1);
+	SET_RB(root, 1);
+	SET_RB(right, 0);
+	SET_RB(leaf, 0);
+
+        result = (GET_RB(left));
+        if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+        }
+        test++;
+
+	result = (GET_RB(root));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+	}
+        test++;
+
+	result = !(GET_RB(right));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+	}
+        test++;
+
+	result = !(GET_RB(leaf));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+	}
+        test++;
+
+	strcpy(method, "SET_RB()");
+
+        SET_ALLOC(left, 1);
+        SET_ALLOC(root, 2);
+        SET_ALLOC(right, 0);
+        SET_ALLOC(leaf, 0);
+
+        result = (GET_ALLOC_T(left));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+        }
+        test++;
+
+	result = (GET_ALLOC_T(root));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+	}
+        test++;
+
+        result = !(GET_ALLOC_T(right));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+	  if(verbose) printVerbose(7, bp[2]);
+	}
+        test++;
+
+	result = !(GET_ALLOC_T(leaf));
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+	}
+        test++;
+
+
+        strcpy(method, "SET_PARENT()");
+
+        SET_PARENT(left, root);
+        SET_PARENT(root, 0);
+        SET_PARENT(right, root);
+        SET_PARENT(leaf, left);
+
+        result = bp[4] == root;
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+	  allPassed = 0;
+	  if(verbose) printVerbose(root, bp[4]);
+        }
+        test++;
+
+        result = bp[10] == 0;
+        if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(0, bp[10]);
+        }
+        test++;
+
+        result = bp[17] == root;
+        if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(root, bp[17]);
+        }
+        test++;
+
+        result = bp[22] == left;
+        if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(left, bp[22]);
+        }
+        test++;
+
+
+
+
+	strcpy(method, "SET_PARENT()");
+
+        result = (GET_PARENT(left)) == root;
+        if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+        }
+        test++;
+
+	result = (GET_PARENT(root)) == 0;
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+        }
+        test++;
+
+	result = (GET_PARENT(right)) == root;
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+        }
+        test++;
+
+	result = (GET_PARENT(leaf)) == left;
+	if (!result) {
+          printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(7, bp[2]);
+        }
+        test++;
+
+
+        strcpy(method, "GET_NEXT()");
+
+	result = GET_NEXT(left) == root;
+	if (!result) {
+	  printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(left, result);
+        }
+        test++;
+
+	result = GET_NEXT(root) == right;
+	if (!result) {
+	  printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(right, GET_NEXT(root));
+        }
+        test++;
+
+	result = GET_NEXT(right) == leaf;
+	if (!result) {
+	  printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(leaf, GET_NEXT(right));
+        }
+        test++;
+
+
+
+
+        strcpy(method, "GET_LAST()");
+	int * r = ((GET_LEFT( GET(MC(root)-4*WSIZE)) == root ) ? (GET_LEFT(GET(MC(root)-4*WSIZE))) : (GET_RIGHT(GET(MC(root)-4*WSIZE))));
+	printf("(GET_LEFT( GET(MC(root)-4*WSIZE)) == root: %d\n", (GET_LEFT( GET(MC(root)-4*WSIZE)) == root) );
+	printf("4*WSIZE == root: %d\n", (GET_LEFT( GET(MC(root)-4*WSIZE)) == root) );
+	result = r == left;
+	if (!result) {
+	  printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(left, r);
+        }
+        test++;
+/*
+	result = GET_LAST(right) == root;
+	if (!result) {
+	  printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(right, GET_NEXT(root));
+        }
+        test++;
+
+	result = GET_LAST(leaf) == right;
+	if (!result) {
+	  printf("Test %d failed for method %s\n", test, method);
+          allPassed = 0;
+          if(verbose) printVerbose(leaf, GET_NEXT(right));
+        }
+        test++;
+*/
+
+
+/* Node macros
+#define MC(p)			((char*) (p))
+#define SET_LEFT(p, addr)	PUT(MC(p)-(3*WSIZE), addr)
+#define SET_RIGHT(p, addr)	PUT(MC(p)-(2*WSIZE), addr)
+#define SET_SIZE(p, size) 	PUT(MC(p)-WSIZE, PACK_T(size, GET_ALLOC_T(p), GET_RB(p)))
+#define SET_PARENT(p, addr)	PUT(MC(p)+GET_SIZE_T(p), addr)
+#define SET_ALLOC(p, alloc)	PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), alloc, GET_RB(p) ) )
+#define SET_RB(p, rb)           PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC(p), rb ) )
+#define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
+
+#define GET_LEFT(p)		GET(MC(p)-3*(WSIZE))
+#define GET_RIGHT(p)		GET(MC(p)-2*(WSIZE))
+#define GET_ALLOC_T(p)		(GET(MC(p)-1*(WSIZE)) & 0x1)
+#define GET_SIZE_T(p)		(GET(MC(p)-1*(WSIZE)) & ~0x3)
+#define GET_RB(p)		(GET(MC(p)-1*(WSIZE)) & 0x2)
+#define GET_PARENT(p)		GET(MC(p)+GET_SIZE_T(p))
+#define GET_LAST(p)		((GET_LEFT( GET(MC(root)-4*WSIZE)) == p ) ? (GET_LEFT(GET(MC(root)-4*WSIZE))) : (GET_RIGHT(GET(MC(root)-4*WSIZE))))
+#define GET_NEXT(p)		((MC(p)+4*WSIZE+GET_SIZE_T(p)))
+*/
 
 
 
