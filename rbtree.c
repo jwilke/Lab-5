@@ -80,6 +80,7 @@ int insert(int * node);
 int* find(int nsize); // find the parent that leaf of size nsize would have
 int* rem_delete(int size);
 void delete(int *node);
+void printTree();
 void print_tree_level(struct lnode* olist);
 int* get_sibling(int* node);
 void icase1(int * node);
@@ -125,11 +126,29 @@ int main() {
 
 	insert(temp);
 
-	struct lnode* printtree = malloc(sizeof(struct lnode));
-	printtree->data = root;
-	printtree->next = NULL;
-	print_tree_level(printtree);
+        temp = (int*)GET_NEXT(temp);
 
+        SET_LEFT(temp, NULL);
+        SET_RIGHT(temp, NULL);
+        SET_SIZE(temp, 24);
+        SET_ALLOC(temp, 0);
+        SET_RB(temp, BLACK);
+        SET_PARENT(temp, NULL);
+
+        insert(temp);
+
+        temp = (int*)GET_NEXT(temp);
+
+        SET_LEFT(temp, NULL);
+        SET_RIGHT(temp, NULL);
+        SET_SIZE(temp, 20);
+        SET_ALLOC(temp, 0);
+        SET_RB(temp, BLACK);
+        SET_PARENT(temp, NULL);
+
+        insert(temp);
+
+	printTree();
 
 	free(bp);
 	return 0;
@@ -206,39 +225,64 @@ void icase3(int * node) {
 }
 
 void icase4(int * node) {
-	//int p = GET_PARENT(node);
-	//int gp =  GET_PARENT(p);
-	
-	
-}
-
-void icase5(int * node) {	
-}
-
-void rotate_clock(int * node) {
 	int* p = GET_PARENT(node);
-	int* g = GET_PARENT(node);
-	int go_left = (GET_RIGHT(g) == p);
-	int* r = GET_RIGHT(node);
+	int* gp = GET_PARENT(p);
 
-	if(go_left) SET_LEFT(g, node);
-	else SET_RIGHT(g, node);
+	if( (node == GET_RIGHT(p)) && (p == GET_LEFT(gp)) ) {
+		rotate_counter_clock(p);
+		node = GET_LEFT(node);
+	} else if ( (node == GET_LEFT(p)) && (p == GET_RIGHT(gp)) ) {
+		rotate_clock(p);
+		node = GET_RIGHT(node);
+	}
+	icase5(node);
+}
 
-	SET_LEFT(p,r);
-	SET_RIGHT(node, p);
+void icase5(int * node) {
+	int* p = GET_PARENT(node);
+	if(p == NULL) return;
+	int* gp = GET_PARENT(p);
+
+	SET_RB(p, BLACK);
+	SET_RB(gp, RED);
+	if( node == GET_LEFT(p) ) rotate_clock(gp);
+	else  rotate_counter_clock(gp);
 }
 
 void rotate_counter_clock(int * node) {
 	int* p = GET_PARENT(node);
-	int* g = GET_PARENT(node);
-	int go_left = (GET_RIGHT(g) == p);
+	int* r = GET_RIGHT(node);
+	int* childs_l = GET_LEFT(r);
+
+	if(p != NULL) {
+		if(GET_RIGHT(p) == node) SET_RIGHT(p, r);
+		else SET_LEFT(p, r);
+		SET_PARENT(r, p);
+	}
+
+	SET_LEFT(r,node);
+	SET_PARENT(node,r);
+	SET_RIGHT(node, childs_l);
+	if(childs_l != NULL)
+		SET_PARENT(childs_l, node);
+}
+
+void rotate_clock(int * node) {
+	int* p = GET_PARENT(node);
 	int* l = GET_LEFT(node);
+	int* childs_r = GET_RIGHT(l);
 
-	if(go_left) SET_LEFT(g, node);
-	else SET_RIGHT(g, node);
+        if(p != NULL) {
+                if(GET_LEFT(p) == node) SET_LEFT(p, l);
+                else SET_RIGHT(p, l);
+		SET_PARENT(l, p);
+	}
 
-	SET_RIGHT(p,l);
-	SET_LEFT(node, p);
+	SET_RIGHT(l,node);
+	SET_PARENT(node, l);
+	SET_LEFT(node, childs_r);
+	if(childs_r != NULL)
+		SET_PARENT(childs_r,node);
 }
 
 
@@ -281,6 +325,13 @@ int* get_sibling(int* node) {
 		return GET_RIGHT(parent);
 	}
 	return GET_LEFT(parent);
+}
+
+void printTree() {
+	struct lnode* printtree = malloc(sizeof(struct lnode));
+	printtree->data = root;
+	printtree->next = NULL;
+	print_tree_level(printtree);
 }
 
 void print_tree_level(struct lnode* olist) {
