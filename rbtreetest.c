@@ -60,30 +60,35 @@ int testOrdering(int* root);
 int testRedNodes(int* root);
 int testBlackPaths(int* root);
 
-static int num_nodes = 1;
+static int num_nodes = 0;
 static int * root = NULL;
-static int * bp = NULL;
+static int * basepointer = NULL;
 
+int* get_last(int* bp);
 void print_node(int * node);
 int insert(int * node);
 int* find(int nsize); // find the parent that leaf of size nsize would have
 int* rem_delete(int size);
 void delete(int *node);
-void print_tree_level();
-int* get_last(int* bp);
-void icase2(int * node);
+void printTree();
 void print_tree_level(struct lnode* olist);
-
-
+int* get_sibling(int* node);
+void icase1(int * node);
+void icase2(int * node);
+void icase3(int * node);
+void icase4(int * node);
+void icase5(int * node);
+void rotate_clock(int * node);
+void rotate_counter_clock(int * node);
+int * createNode(int * base, int size);
+void printBlock(int size);
+void printBlockNodes(int size);
 
 int main(int argv, char** argc) {
 	int * r = createTree2();
 	int passed = 1;
 	if (argv > 1 && argc[1][0] == 'p') {
-		struct lnode* printtree = malloc(sizeof(struct lnode));
-		printtree->data = r;
-		printtree->next = NULL;
-		print_tree_level(printtree);
+	        printTree();
 		printf("\n");
 	} else {
 		if(!testRoot(r)) { printf("Root was not Black\n"); passed = 0; }
@@ -91,6 +96,8 @@ int main(int argv, char** argc) {
 		if(!testRedNodes(r)) { printf("Red Nodes had red children\n"); passed = 0; }
 		if(testBlackPaths(r) == -1) { printf("Tree not balanced\n"); passed = 0; }
 		if (passed) printf("All tests passed!\n");
+		printBlock(3*4 + 6);
+		printTree();
 	}
 }
 
@@ -233,7 +240,44 @@ int* createTree() {
 }
 
 int* createTree2() {
+  int size = 16*6 + 4 + 8 + 12 + 16 + 20 + 24;
+  int * space = malloc(size);
+  basepointer = space;
+  int * node = space + 3;
+  
+  createNode(node, 4);
+  insert(node);
+  node = GET_NEXT(node);
 
+  createNode(node, 8);
+  insert(node);
+  node = GET_NEXT(node);
+
+  createNode(node, 12);
+  insert(node);
+  node = GET_NEXT(node);
+
+  createNode(node, 16);
+  insert(node);
+  node = GET_NEXT(node);
+
+  createNode(node, 20);
+  insert(node);
+  node = GET_NEXT(node);
+
+  createNode(node, 24);
+  insert(node);
+
+  return root;
+}
+
+int * createNode(int * base, int size) {
+  SET_LEFT(base, NULL);
+  SET_RIGHT(base, NULL);
+  SET_SIZE(base, size);
+  SET_ALLOC(base, 0);
+  SET_RB(base, BLACK);
+  SET_PARENT(base, NULL);
 }
 
 int testRoot(int* r) {
@@ -242,10 +286,10 @@ int testRoot(int* r) {
 }
 
 int testOrdering(int* r) {
-	if (r == NULL) return 1;
+  if (r == NULL) return 1;
 	int out = 1;
 	if (GET_LEFT(r) != NULL) out = out && GET_SIZE(r) >= GET_SIZE(GET_LEFT(r));
-	if (GET_RIGHT(r) != NULL) out = out && GET_SIZE(r) <= GET_SIZE(GET_LEFT(r));
+	if (GET_RIGHT(r) != NULL) out = out && GET_SIZE(r) <= GET_SIZE(GET_RIGHT(r));
 	out = out && testOrdering(GET_LEFT(r));
 	out = out && testOrdering(GET_RIGHT(r));
 	return out;
@@ -279,99 +323,160 @@ int testBlackPaths(int* r) {
 }
 
 void print_node(int * node) {
-	printf("\nNODE:\nLEFT: %p\n", GET_LEFT(node));
-	printf("RIGHT: %p\n", GET_RIGHT(node));
-	printf("SIZE: %d\n", GET_SIZE_T(node));
-	printf("RB: %d\n", GET_RB(node));
-	printf("PARENT: %p\n", GET_PARENT(node));
-	return;
+  printf("\nNODE:\nLEFT: %p\n", GET_LEFT(node));
+  printf("RIGHT: %p\n", GET_RIGHT(node));
+  printf("SIZE: %d\n", GET_SIZE_T(node));
+  printf("RB: %d\n", GET_RB(node));
+  printf("PARENT: %p\n", GET_PARENT(node));
+  return;
 }
 
-int insert(int * node) {  //assumes header/footer is already created
-	int size = GET_SIZE_T(node);
+int insert(int * node) { //assumes header/footer is already created
+  int size = GET_SIZE_T(node);
 
-	
-	SET_LEFT(node, NULL);
-	SET_RIGHT(node, NULL);
-	SET_SIZE(node, size);
-	SET_RB(node, RED);
-	SET_ALLOC(node, 0);
-	num_nodes++;
+  SET_LEFT(node, NULL);
+  SET_RIGHT(node, NULL);
+  SET_SIZE(node, size);
+  SET_RB(node, RED);
+  SET_ALLOC(node, 0);
 
-	if(num_nodes == 0) {  //base case
-		root = node;
-		SET_RB(root, BLACK);
-		SET_PARENT(root, NULL);
-		return 1;
-	}
+  if(num_nodes == 0) {
+    num_nodes++;
+    root = node;
+    SET_RB(root, BLACK);
+    SET_PARENT(root, NULL);
+    return 1;
+  }
+  num_nodes++;
 
-	int* parent = find(size);
-	if(size <= GET_SIZE_T(parent)) {
-		SET_LEFT(parent,node);
-		SET_PARENT(node, parent);
-	} else {
-		SET_RIGHT(parent, node);
-		SET_PARENT(node, parent);
-	}
-	
+  int* parent = find(size);
+  if(size <= GET_SIZE_T(parent)) {
+    SET_LEFT(parent,node);
+    SET_PARENT(node, parent);
+  } else {
+    SET_RIGHT(parent, node);
+    SET_PARENT(node, parent);
+  }
 
-	if(GET_RB(parent) == BLACK) {  // case 1
-		return 1;
-	}
+  icase1(node);
 
-	if(GET_RB(parent) == RED) { // case 2 and 3
-		icase2(node);
-	}
+  return 0;
+}
 
-	return -1;
+void icase1(int * node) {
+  if(GET_PARENT(node) == NULL) {
+    SET_RB(node, BLACK);
+  } else {
+    icase2(node);
+  }
+  SET_RB(root, BLACK);
 }
 
 void icase2(int * node) {
-	
+  int* parent = GET_PARENT(node);
+  if(GET_RB(parent) == BLACK)
+    return;
+  else icase3(node);
 }
 
+void icase3(int * node) {
+  int* parent = GET_PARENT(node);
+  int* u = get_sibling(parent); //uncle
+
+  if( (u != NULL) && (GET_RB(u) == RED)) {
+    SET_RB(parent, BLACK); // set parent to black
+    SET_RB(u, BLACK); // set uncle to black
+    SET_RB(GET_PARENT(parent),RED); // set grandparent to red
+    icase1(GET_PARENT(parent)); // check if grandparent is good
+  } else {
+    icase4(node);
+  }
+}
+
+void icase4(int * node) {
+  int* p = GET_PARENT(node);
+  int* gp = GET_PARENT(p);
+
+  if( (node == GET_RIGHT(p)) && (p == GET_LEFT(gp)) ) {
+    rotate_counter_clock(p);
+    node = GET_LEFT(node);
+  } else if ( (node == GET_LEFT(p)) && (p == GET_RIGHT(gp)) ) {
+    rotate_clock(p);
+    node = GET_RIGHT(node);
+  }
+  icase5(node);
+}
+
+void icase5(int * node) {
+  int* p = GET_PARENT(node);
+  if(p == NULL) return;
+  int* gp = GET_PARENT(p);
+
+  SET_RB(p, BLACK);
+  SET_RB(gp, RED);
+  if( node == GET_LEFT(p) ) rotate_clock(gp);
+  else rotate_counter_clock(gp);
+}
+
+void rotate_counter_clock(int * node) {
+  int* p = GET_PARENT(node);
+  int* r = GET_RIGHT(node);
+  int* childs_l = GET_LEFT(r);
+
+  if(p != NULL) {
+    if(GET_RIGHT(p) == node) SET_RIGHT(p, r);
+    else SET_LEFT(p, r);
+    SET_PARENT(r, p);
+  }
+
+  SET_LEFT(r,node);
+  SET_PARENT(node,r);
+  SET_RIGHT(node, childs_l);
+  if(childs_l != NULL)
+    SET_PARENT(childs_l, node);
+  if (root == node) root = r;
+}
+
+void rotate_clock(int * node) {
+  int* p = GET_PARENT(node);
+  int* l = GET_LEFT(node);
+  int* childs_r = GET_RIGHT(l);
+
+  if(p != NULL) {
+    if(GET_LEFT(p) == node) SET_LEFT(p, l);
+    else SET_RIGHT(p, l);
+    SET_PARENT(l, p);
+  }
+
+  SET_RIGHT(l,node);
+  SET_PARENT(node, l);
+  SET_LEFT(node, childs_r);
+  if(childs_r != NULL)
+    SET_PARENT(childs_r,node);
+  if (root == node) root = l;
+}
 
 int* find(int nsize) {
-	int* current = root;
+  int* current = root;
 
-	while(1) {
-		if(nsize <= GET_SIZE_T(current)) {  //try to go left
-			if(GET_LEFT(current) == 0) { // if there's no node to the left, it's the parent
-				break;
-			} else {
-				current = (int*)GET_LEFT(current); // go left and continue
-				continue;
-			}
-		} else {  // try to go right
-			if(GET_RIGHT(current) == 0) { // if there's no node to the right, it's the parent
-				break;
-			} else {
-				current = (int*)GET_RIGHT(current); // go left and continue
-			}
-		}
-		
-	}
-	return current;
-}
+  while(1) {
+    if(nsize <= GET_SIZE_T(current)) { //try to go left
+      if(GET_LEFT(current) == 0) { // if there's no node to the left, it's the parent
+	break;
+      } else {
+	current = (int*)GET_LEFT(current); // go left and continue
+	continue;
+      }
+    } else { // try to go right
+      if(GET_RIGHT(current) == 0) { // if there's no node to the right, it's the parent
+	break;
+      } else {
+	current = (int*)GET_RIGHT(current); // go left and continue
+      }
+    }
 
-int* rem_delete(int size) {
-	return NULL;
-}
-
-void delete(int *node) {
-	return;
-}
-
-int* get_sibling(int* node) {
-	int* parent = (int*)GET_PARENT(node);
-	if(parent == 0) return NULL;
-
-	int size = GET_SIZE_T(node);
-	int psize = GET_SIZE_T(GET_PARENT(node));
-	if((int*)GET_LEFT(parent) == node) {
-		return (int *) GET_RIGHT(parent);
-	}
-	return (int*) GET_LEFT(parent);
+  }
+  return current;
 }
 
 int * get_last(int * bp) {
@@ -406,44 +511,86 @@ int * get_last(int * bp) {
 	return NULL;
 }
 
-void print_tree_level(struct lnode* olist) {
-	struct lnode* nlist = malloc(sizeof(struct lnode));
-	nlist->data = NULL;
-	nlist->next = NULL;
-	struct lnode* cur = nlist;
-	if(olist->data == NULL) return;
-	struct lnode* temp;
-	char color = 'R';
-	
-	while(olist != NULL) {
-		if(GET_RB(olist->data) == 0) color = 'B';
-		else color = 'R';
-
-		printf("%d:%c ", GET_SIZE_T(olist->data), color);
-		if(GET_LEFT(olist->data) != NULL) {
-			temp = malloc(sizeof(struct lnode));
-			temp->data = GET_LEFT(olist->data);
-			temp->next = NULL;
-			nlist->next = temp;
-			nlist = nlist->next;
-		}
-		if(GET_RIGHT(olist->data) != NULL) {
-			temp = malloc(sizeof(struct lnode));
-			temp->data = GET_RIGHT(olist->data);
-			temp->next = NULL;
-			nlist->next = temp;
-			nlist = nlist->next;
-		}
-		struct lnode * f = olist->next;
-		free(olist);
-		olist = f;
-	}
-	if(cur->next != NULL && cur->data == NULL) {
-		struct lnode * f = cur->next;
-		free(cur);
-		cur = f;
-	}
-	printf("\n");
-	print_tree_level(cur);
+int* rem_delete(int size) {
+  return NULL;
 }
 
+void delete(int *node) {
+  return;
+}
+
+int* get_sibling(int* node) {
+  int* parent = GET_PARENT(node);
+  if(parent == 0) return NULL;
+
+  if((int*)GET_LEFT(parent) == node) {
+    return GET_RIGHT(parent);
+  }
+  return GET_LEFT(parent);
+}
+
+void printTree() {
+  struct lnode* printtree = malloc(sizeof(struct lnode));
+  printtree->data = root;
+  printtree->next = NULL;
+  print_tree_level(printtree);
+}
+
+void print_tree_level(struct lnode* olist) {
+  struct lnode* nlist = malloc(sizeof(struct lnode));
+  nlist->data = NULL;
+  nlist->next = NULL;
+  struct lnode* cur = nlist;
+  if(olist->data == NULL) return;
+  struct lnode* temp;
+  char color = 'R';
+
+  while(olist != NULL) {
+    if(GET_RB(olist->data) == 0) color = 'B';
+    else color = 'R';
+
+    printf("%d:%c ", GET_SIZE_T(olist->data), color);
+    if(GET_LEFT(olist->data) != NULL) {
+      temp = malloc(sizeof(struct lnode));
+      temp->data = GET_LEFT(olist->data);
+      temp->next = NULL;
+      nlist->next = temp;
+      nlist = nlist->next;
+    }
+    if(GET_RIGHT(olist->data) != NULL) {
+      temp = malloc(sizeof(struct lnode));
+      temp->data = GET_RIGHT(olist->data);
+      temp->next = NULL;
+      nlist->next = temp;
+      nlist = nlist->next;
+    }
+    struct lnode * f = olist->next;
+    free(olist);
+    olist = f;
+  }
+  if(cur->next != NULL && cur->data == NULL) {
+    struct lnode * f = cur->next;
+    free(cur);
+    cur = f;
+  }
+  printf("\n");
+  print_tree_level(cur);
+}
+
+void printBlock(int size) {
+  int i;
+  printf("**************************\n");
+  for(i = 0; i < size; i++ ) {
+    printf("%p: %x\n", basepointer + i, basepointer[i]);
+  }
+  printf("**************************\n");
+}
+
+void printBlockNodes(int size) {
+  int * current = basepointer + 3;
+  while (current < basepointer + size) {
+    print_node(current);
+    printf("\n");
+    current = GET_NEXT(current);
+  }
+}
