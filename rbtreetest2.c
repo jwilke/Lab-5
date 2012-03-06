@@ -332,8 +332,13 @@ int* createTree2() {
 	node = rem_delete(24);
 	runTests(root, 5, round++);
 
-	printTree();
 	node = rem_delete(4);
+	runTests(root, 5, round++);
+
+	node = rem_delete(8);
+	runTests(root, 5, round++);
+
+	node = rem_delete(16);
 	runTests(root, 5, round++);
 
 	printTree();
@@ -351,7 +356,7 @@ int * createNode(int * base, int size) {
 }
 
 int testRoot(int* r) {
-	if (r == NULL) return 0;
+	if (r == NULL) return 1;
 	else return (GET_RB(r) == BLACK);
 }
 
@@ -680,6 +685,7 @@ int* delete_sub(int* n) {
 		SET_LEFT(dumby, NULL);
 		SET_RIGHT(dumby, NULL);
 		SET_PARENT(dumby, NULL);
+		if (root == dumby) root = NULL;
 	}
 
 	return copy;
@@ -897,10 +903,6 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 	int* pb = GET_PARENT(b);
 	int lopb = (b == GET_LEFT(pb));
 
-	print_node(a);
-	print_node(b);
-	print_node(pa);
-
 	SET_RB(a, cb);
 	SET_RB(b, ca);
 
@@ -926,7 +928,6 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 	if(lopa) {
 		SET_LEFT(pa, b);
 	} else {
-		printf("GET HERER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 		SET_RIGHT(pa, b);
 	}
 
@@ -940,10 +941,6 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 		}
 		SET_PARENT(a,b);
 	}
-
-	print_node(a);
-	print_node(b);
-	print_node(pa);
 
 	if(root == a) root = b;
 	else if(root == b) root = a;
@@ -963,119 +960,3 @@ int* replace_node_one_child(int* node) {
 	return GET_RIGHT(node);
 }
 
-/*		
-	// if it is a red child nothing needs to be done
-	if (GET_LEFT(node) == NULL && GET_RIGHT(node) == NULL && GET_RB(node) == RED) {
-		int * parent = GET_PARENT(node);
-	if (GET_LEFT(parent) == node) {
-		SET_LEFT(parent, NULL);
-	} else {
-		SET_RIGHT(parent, NULL);
-	}
-		SET_PARENT(node, NULL);
-		return node;
-	}
-
-  // node is black with one red child
-  if(GET_RB(node) == BLACK) {
-    // it has a single red child (has to be a leaf) to the right
-    if( (GET_LEFT(node) == NULL && GET_RIGHT(node) != NULL && GET_RB(GET_RIGHT(node)) == RED) ) {
-      // switch with right
-      int* rep = GET_RIGHT(node);
-      int* parent = GET_PARENT(node);
-      if(parent!= NULL) {
-        if (GET_LEFT(parent) == node) {
-          SET_LEFT(parent, rep);
-        } else {
-          SET_RIGHT(parent, rep);
-        }
-      } else {
-	// must be root
-        assert(root == node);
-        root = rep;
-      }
-      SET_RB(rep, BLACK);
-      return node;
-    }
-
-    // it has a single red child (has to be a leaf) to the left
-    if( (GET_RIGHT(node) == NULL && GET_LEFT(node) != NULL && GET_RB(GET_LEFT(node)) == RED) ) {
-      //switch with left
-      int* rep = GET_LEFT(node);
-      int* parent = GET_PARENT(node);
-      if(parent != NULL) {
-	if (GET_LEFT(parent) == node) {
-	  SET_LEFT(parent, rep);
-	} else {
-	  SET_RIGHT(parent, rep);
-	} 
-      } else {
-	// must be root
-	assert(root == node);
-        root = rep;
-      }
-      SET_RB(rep, BLACK);
-      return node;
-    }
-
-  }
-
-  // black leaf - more difficult
-  if (GET_LEFT(node) == NULL && GET_RIGHT(node) == NULL && GET_RB(node) == BLACK) {
-    int blackleaf = 0;
-    assert(blackleaf);
-  }
-
-  // get and replace node
-  if (GET_LEFT(node) != NULL && GET_RIGHT(node) != NULL) {
-    int* exchange = getSucPre(node);
-    delete(exchange);
-    SET_LEFT(exchange, GET_LEFT(node));
-    SET_RIGHT(exchange, GET_RIGHT(node));
-    SET_PARENT(exchange, GET_PARENT(node));
-    SET_RB(exchange, GET_RB(node));
-    int* parent = GET_PARENT(node);
-    if(parent != NULL) {
-      if (GET_LEFT(parent) == node) {
-	SET_LEFT(parent, exchange);
-      } else {
-	SET_RIGHT(parent, exchange);
-      }
-    } else {
-      root = exchange;
-      SET_RB(root, BLACK);
-    }
-    num_nodes++;
-    return node;
-  }
-	*/
-
-	/*if (GET_LEFT(n) == NULL) {
-		child = GET_RIGHT(n);
-	} else {
-		child = GET_LEFT(n);
-	}
-
-	int* p = GET_PARENT(n);
-	if(child != NULL) {
-		if(p != NULL) {
-			SET_PARENT(child, p);
-			if(GET_LEFT(p) == n) {
-				SET_LEFT(p, child);
-			} else {
-				SET_RIGHT(p, child);
-			}
-		} else {
-			root = child;
-		}
-	} else {
-		if (p != NULL) {
-			if(GET_LEFT(p) == n) {
-				SET_LEFT(p, NULL);
-			} else {
-				SET_RIGHT(p, NULL);
-			}
-		} else {
-			root = NULL;
-		}
-	}*/
