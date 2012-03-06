@@ -23,7 +23,7 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "Wilkevelli",
+    "jlw3599-grambo",
     /* First member's full name */
     "Jacob Wilke",
     /* First member's email address */
@@ -74,26 +74,31 @@ team_t team = {
 
 /* Node macros */
 #define MC(p)			((char*) (p))
-#define SET_LEFT(p, addr)	PUT(MC(p)-(3*WSIZE), addr)
-#define SET_RIGHT(p, addr)	PUT(MC(p)-(2*WSIZE), addr)
-#define SET_SIZE(p, size) 	PUT(MC(p)-WSIZE, PACK_T(size, GET_ALLOC_T(p), GET_RB(p)))
-#define SET_PARENT(p, addr)	PUT(MC(p)+GET_SIZE_T(p), addr)
-#define SET_ALLOC(p, alloc)	PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), alloc, GET_RB(p) ) )
-#define SET_RB(p, rb)           PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC(p), rb ) )
+#define SET_LEFT(p, addr)	((p != NULL) ? PUT(MC(p)-(3*WSIZE), addr):(unsigned int)p)
+#define SET_RIGHT(p, addr)	((p != NULL) ? PUT(MC(p)-(2*WSIZE), addr):(unsigned int)p)
+#define SET_SIZE(p, size) 	((p != NULL) ? PUT(MC(p)-WSIZE, PACK_T(size, GET_ALLOC_T(p), GET_RB(p))):(unsigned int)p)
+#define SET_PARENT(p, addr)	((p != NULL) ? PUT(MC(p)+GET_SIZE_T(p), addr):(unsigned int)p)
+#define SET_ALLOC(p, alloc)	((p != NULL) ? PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), alloc, GET_RB(p) ) ):-1)
+#define SET_RB(p, rb)           ((p != NULL) ? PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC(p), rb ) ):(unsigned int)p)
 #define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
 
-#define GET_LEFT(p)		( (int *) GET(MC(p)-3*(WSIZE)) )
-#define GET_RIGHT(p)		( (int *) GET(MC(p)-2*(WSIZE)) )
-#define GET_ALLOC_T(p)		(GET(MC(p)-1*(WSIZE)) & 0x1)
-#define GET_SIZE_T(p)		(GET(MC(p)-1*(WSIZE)) & ~0x3)
-#define GET_RB(p)		((GET(MC(p)-1*(WSIZE)) & 0x2) >> 1)
-#define GET_PARENT(p)		( (int *) GET(MC(p)+GET_SIZE_T(p)) )
+#define GET_LEFT(p)		((p != NULL) ? ( (int *) GET(MC(p)-3*(WSIZE)) ):NULL)
+#define GET_RIGHT(p)		((p != NULL) ? ( (int *) GET(MC(p)-2*(WSIZE)) ):NULL)
+#define GET_ALLOC_T(p)		((p != NULL) ? (GET(MC(p)-1*(WSIZE)) & 0x1):-1)
+#define GET_SIZE_T(p)		((p != NULL) ? (GET(MC(p)-1*(WSIZE)) & ~0x3):(unsigned int)p)
+#define GET_RB(p)		((p != NULL) ? ((GET(MC(p)-1*(WSIZE)) & 0x2) >> 1):0)
+#define GET_PARENT(p)		((p != NULL) ? ( (int *) GET(MC(p)+GET_SIZE_T(p)) ):NULL)
 #define GET_LAST(p)		get_last(p)
 #define GET_NEXT(p)		( (int *) ((MC(p)+4*WSIZE+GET_SIZE_T(p))) )
 
+#define OVERHEAD 16
+
+#define BLACK 0
+#define RED   1
+
 
 //private global pointers
-static void *heap_listp;
+void *heap_listp;
 static void *root;  //base node of RBTree
 
 /* 
@@ -280,7 +285,7 @@ static void place (void *bp, size_t asize) {
 
 int * get_last(int * bp) {
 
-	int addr = MC(bp)-4*WSIZE;
+	int* addr = (int*) (MC(bp)-4*WSIZE);
 
 	if (GET_NEXT(root) == bp)
 		return root;
@@ -289,7 +294,7 @@ int * get_last(int * bp) {
 		return NULL;
 	}
 
-	int *last_parent = GET(addr);
+	int *last_parent = (int*) GET(addr);
 
 	if (last_parent == 0) 
 		return NULL;
@@ -336,28 +341,28 @@ void unit(int verbose) {
 	SET_LEFT(rootr, left);
 	SET_LEFT(leaf, NULL);
 	
-	result = bp[0] == leaf;
+	result = ((int*) bp[0]) == leaf;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
 		allPassed = 0;
 	}
 	test++;
 
-	result = bp[5] == left;
+	result = ((int*) bp[5]) == left;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
 		allPassed = 0;
 	}
 	test++;
 
-	result = bp[11] == NULL;
+	result = ((int*) bp[11]) == NULL;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
 		allPassed = 0;
 	}
 	test++;
 
-	result = bp[18] == NULL;
+	result = ((int*) bp[18]) == NULL;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
 		allPassed = 0;
@@ -416,7 +421,7 @@ void unit(int verbose) {
 	}
 	test++;
 
-	result = bp[6] == right;
+	result = ((int*) bp[6]) == right;
 	if (!result) {
 		printf("Test %d failed for method %s\n", test, method);
 		allPassed = 0;
@@ -704,7 +709,7 @@ void unit(int verbose) {
         SET_PARENT(right, rootr);
         SET_PARENT(leaf, left);
 
-        result = bp[4] == rootr;
+        result = ((int*) bp[4]) == rootr;
 	if (!result) {
           printf("Test %d failed for method %s\n", test, method);
 	  allPassed = 0;
