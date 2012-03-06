@@ -318,7 +318,7 @@ int * get_last(int * bp) {
 void printVerbose(int exp, int result) {
   	printf("expected: \t%d\ngot:\t\t%d\n", exp, result);
 }
-
+ 
 void unit(int verbose) {
 	printf("\nTesting Nodes\n");
 	char method[30];
