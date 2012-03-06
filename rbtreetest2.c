@@ -283,17 +283,17 @@ int* createTree() {
 }
 
 int* createTree2() {
-  int size = 16*6 + 4 + 8 + 12 + 16 + 20 + 24 + 4;
+	int size = 16*6 + 4 + 8 + 12 + 16 + 20 + 24 + 4;
 
-	
 
-  int * space = malloc(size);
 
-	
+	int * space = malloc(size);
 
-  int round = 1;
-  basepointer = space;
-  int * node = space + 3;
+
+
+	int round = 1;
+	basepointer = space;
+	int * node = space + 3;
 	dumby = node;
 	SET_SIZE(dumby, 0);
 	SET_RB(dumby, BLACK);
@@ -302,66 +302,43 @@ int* createTree2() {
 	SET_RIGHT(dumby, NULL);
 	SET_PARENT(dumby, NULL);
 	node = GET_NEXT(node);
-print_node(dumby);
+
   
-  createNode(node, 24);
-  insert(node);
-  node = GET_NEXT(node);
+	createNode(node, 24);
+	insert(node);
+	node = GET_NEXT(node);
 
-  runTests(root, 5, round++);
+	runTests(root, 5, round++);
 
-  createNode(node, 8);
-  insert(node);
-  node = GET_NEXT(node);
+	createNode(node, 8);
+	insert(node);
+	node = GET_NEXT(node);
 
-  runTests(root, 5, round++);
+	runTests(root, 5, round++);
 
-  createNode(node, 16);
-  insert(node);
-  node = GET_NEXT(node);
+	createNode(node, 16);
+	insert(node);
+	node = GET_NEXT(node);
 
-  runTests(root, 5, round++);
+	runTests(root, 5, round++);
 
-  createNode(node, 4);
-  insert(node);
-  node = GET_NEXT(node);
+	createNode(node, 4);
+	insert(node);
+	node = GET_NEXT(node);
 
-  runTests(root, 5, round++);
+	runTests(root, 5, round++);
 
 
-  /*
-  createNode(node, 20);
-  insert(node);
-  node = GET_NEXT(node);
+	node = rem_delete(24);
+	runTests(root, 5, round++);
 
-  runTests(root, 5, round++);
+	printTree();
+	node = rem_delete(4);
+	runTests(root, 5, round++);
 
-  createNode(node, 24);
-  insert(node);
-
-  runTests(root, 5, round++);
-
-  node = rem_delete(24);
-  runTests(root, 5, round++);
-
-  insert(node);
-  runTests(root, 5, round++);
-
-  node = rem_delete(20);
-  runTests(root, 5, round++);
-
-  insert(node);
-  runTests(root, 5, round++);
-  */
-printTree();
-  node = rem_delete(24);
-printTree();
-  runTests(root, 5, round++);
-
-  //node = rem_delete(16);
-  //runTests(root, 5, round++);
-
-  return root;
+	printTree();
+	
+	return root;
 }
 
 int * createNode(int * base, int size) {
@@ -667,15 +644,20 @@ int* delete(int *node) {
 
 
 int* delete_sub(int* n) {
+	//printf("In delete_sub\n");
+	//printTree();
 	int* copy = n;
 	int dumbyUsed= 0;
 	int* child = replace_node_one_child(n);
+	//printTree();
 	if (child == NULL) {
 		dumbyUsed = 1; 
 		swap_nodes(n, dumby);
 		child = dumby;
 	}
-
+	//print_node(dumby);
+	//print_node(GET_PARENT(dumby));
+	//printTree();
 	if(GET_RB(n) == BLACK) {
 		if (GET_RB(child) == RED) {
 			SET_RB(child, BLACK);
@@ -683,6 +665,7 @@ int* delete_sub(int* n) {
 			dcase1(child);
 		}
 	}
+	//printTree();
 
 	if (dumbyUsed) {
 		int* dp = GET_PARENT(dumby);
@@ -703,12 +686,16 @@ int* delete_sub(int* n) {
 }
 
 void dcase1(int * n) {
+	//printf("In dcase1\n");
 	if (GET_PARENT(n) != NULL) {
+		//printTree();
 		dcase2(n);
 	}
+	
 }
 
 void dcase2(int * n) {
+	//printf("In dcase2\n");
 	int * s = get_sibling(n);
 
 	if (GET_RB(s) == RED) {
@@ -720,16 +707,19 @@ void dcase2(int * n) {
 		else 
 			rotate_clock(p);
 	}
+	//printTree();
 	dcase3(n);
 }
 
 void dcase3(int * n) {
+	//printf("In dcase3\n");
 	int* s = get_sibling(n);
 	int* p = GET_PARENT(n);
 	if (GET_RB(p) == BLACK && GET_RB(s) == BLACK && 
 		GET_RB(GET_LEFT(s)) == BLACK && GET_RB(GET_RIGHT(s)) == BLACK) {
 		
 		SET_RB(s, RED);
+		//printTree();
 		dcase1(p);
 	} else {
 		dcase4(n);
@@ -738,6 +728,7 @@ void dcase3(int * n) {
 }
 
 void dcase4(int* n) {
+	//printf("In dcase4\n");
 	int* s = get_sibling(n);
 	int* p = GET_PARENT(n);
 
@@ -753,6 +744,7 @@ void dcase4(int* n) {
 }
 
 void dcase5(int* n) {
+	//printf("In dcase5\n");
 	int* s = get_sibling(n);
 	int* p = GET_PARENT(n);
 
@@ -772,6 +764,7 @@ void dcase5(int* n) {
 }
 
 void dcase6(int* n) {
+	///printf("In dcase6\n");
 	int* s = get_sibling(n);
 	int* p = GET_PARENT(n);
 
@@ -890,6 +883,8 @@ void printBlockNodes(int size) {
 }
 
 void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
+	
+
 	int ca = GET_RB(a);
 	int* la = GET_LEFT(a);
 	int* ra = GET_RIGHT(a);
@@ -901,6 +896,10 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 	int* rb = GET_RIGHT(b);
 	int* pb = GET_PARENT(b);
 	int lopb = (b == GET_LEFT(pb));
+
+	print_node(a);
+	print_node(b);
+	print_node(pa);
 
 	SET_RB(a, cb);
 	SET_RB(b, ca);
@@ -927,6 +926,7 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 	if(lopa) {
 		SET_LEFT(pa, b);
 	} else {
+		printf("GET HERER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 		SET_RIGHT(pa, b);
 	}
 
@@ -941,12 +941,16 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 		SET_PARENT(a,b);
 	}
 
+	print_node(a);
+	print_node(b);
+	print_node(pa);
 
 	if(root == a) root = b;
 	else if(root == b) root = a;
 }
 
 int* replace_node_one_child(int* node) {
+	if(GET_RIGHT(node) == NULL && GET_LEFT(node) == NULL) return NULL;
 	int* p = GET_PARENT(node);
 	if( node == GET_LEFT(p) ) {
 		SET_LEFT(p, GET_LEFT(node));
