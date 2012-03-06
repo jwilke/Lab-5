@@ -95,6 +95,7 @@ void dcase5(int * n);
 void dcase6(int * n);
 int * delete_sub(int * n);
 void swap_nodes(int* a, int* b);
+int* replace_node_one_child(int* node);
 
 int main(int argv, char** argc) {
 	int * r = createTree2();
@@ -328,12 +329,14 @@ int* createTree2() {
   insert(node);
   runTests(root, 5, round++);
   */
-  printTree();
+//printTree();
   node = rem_delete(8);
-printTree();
+//printTree();
   runTests(root, 5, round++);
-  printTree();
-  printBlock(4*4 + 1+2+4+6);
+
+  //node = rem_delete(16);
+  //runTests(root, 5, round++);
+
   return root;
 }
 
@@ -389,6 +392,7 @@ int testBlackPaths(int* r) {
 }
 
 void print_node(int * node) {
+  printf("\nCURRENT ADDRESS: %p\n", node);
   printf("\nNODE:\nLEFT: %p\n", GET_LEFT(node));
   printf("RIGHT: %p\n", GET_RIGHT(node));
   printf("SIZE: %d\n", GET_SIZE_T(node));
@@ -604,7 +608,6 @@ int * get_last(int * bp) {
 int* rem_delete(int size) {
   // find node to delete
   int * rem = rem_find(size);
-printf("size of node: %d\n\n\n", GET_SIZE_T(rem));
   // delete node
   delete(rem);
   // return node
@@ -613,44 +616,18 @@ printf("size of node: %d\n\n\n", GET_SIZE_T(rem));
 
 int* delete(int *node) {
 	num_nodes--;
-	int* p = GET_PARENT(node);
+	int* sorp = getSucPre(node);
+
+	/*int* p = GET_PARENT(node);
 	int* l = GET_LEFT(node);
 	int* r = GET_RIGHT(node);
-	int* sorp = getSucPre(node);
 	if(sorp == NULL) {
 		printf("size of node: %d\n\n\n", GET_SIZE_T(node));
-	}
+	}*/
 	swap_nodes(node, sorp);
+
+
 	int* n = delete_sub(node);
-
-	/*if(n == NULL) {
-		if(p != NULL) {
-			if( node == GET_LEFT(p) ) {
-				SET_LEFT(p, NULL);
-			} else {
-				SET_RIGHT(p, NULL);
-			}
-		} else {
-			root = NULL;
-		}
-		return node;
-	}
-
-	if(p != NULL) {
-		if( node == GET_LEFT(p) ) {
-			SET_LEFT(p, n);
-		} else {
-			SET_RIGHT(p, n);
-		}
-	} else {
-		root = n;
-	}
-	
-	SET_LEFT(n, l);
-	SET_PARENT(l, n);
-	SET_RIGHT(n, r);
-	SET_PARENT(r, n);
-	SET_PARENT(n, p);*/
 
 	return node;
 }
@@ -660,38 +637,8 @@ int* delete(int *node) {
 
 int* delete_sub(int* n) {
 	if(n == NULL) return NULL;
-	int* child;
 	int* copy = n;
-	if (GET_LEFT(n) == NULL) {
-		child = GET_RIGHT(n);
-	} else {
-		child = GET_LEFT(n);
-	}
-
-	int* p = GET_PARENT(n);
-	if(child != NULL) {
-		if(p != NULL) {
-			SET_PARENT(child, p);
-			if(GET_LEFT(p) == n) {
-				SET_LEFT(p, child);
-			} else {
-				SET_RIGHT(p, child);
-			}
-		} else {
-			root = child;
-		}
-	} else {
-		if (p != NULL) {
-			if(GET_LEFT(p) == n) {
-				SET_LEFT(p, NULL);
-			} else {
-				SET_RIGHT(p, NULL);
-			}
-		} else {
-			root = NULL;
-		}
-	}
-
+	int* child = replace_node_one_child(n);
 
 	if(GET_RB(n) == BLACK) {
 		if (GET_RB(child) == RED) {
@@ -700,8 +647,8 @@ int* delete_sub(int* n) {
 			dcase1(child);
 		}
 	}
-	
-	return copy;	
+
+	return copy;
 }
 
 void dcase1(int * n) {
@@ -789,8 +736,6 @@ void dcase6(int* n) {
 	}
 }
 
-
-
 int* getSucPre(int* node) {
   int* temp;
   if ((temp = GET_LEFT(node)) != NULL) {
@@ -817,15 +762,6 @@ int* get_sibling(int* node) {
   }
   return GET_LEFT(parent);
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -899,49 +835,75 @@ void printBlockNodes(int size) {
 
 }
 
-void swap_nodes(int* a, int* b) {
+void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 	int ca = GET_RB(a);
 	int* la = GET_LEFT(a);
 	int* ra = GET_RIGHT(a);
 	int* pa = GET_PARENT(a);
-	
+	int lopa = (a == GET_LEFT(pa));
+
 	int cb = GET_RB(b);
 	int* lb = GET_LEFT(b);
 	int* rb = GET_RIGHT(b);
 	int* pb = GET_PARENT(b);
+	int lopb = (b == GET_LEFT(pb));
 
 	SET_RB(a, cb);
 	SET_RB(b, ca);
 
 	SET_LEFT(a, lb);
 	SET_PARENT(lb, a);
-	SET_LEFT(b, la);
-	SET_PARENT(la, b);
-	
+	SET_LEFT(b, la); //messes up
+	SET_PARENT(la, b); //messes up
+
 	SET_RIGHT(a, rb);
 	SET_PARENT(rb, a);
-	SET_RIGHT(b, ra);
-	SET_PARENT(ra, b);
+	SET_RIGHT(b, ra); //messes up
+	SET_PARENT(ra, b); //messes up
 
-	SET_PARENT(a, pb);
+	SET_PARENT(a, pb);//messes up
 	SET_PARENT(b, pa);
 
-	if(b == GET_LEFT(pb)) {
-		SET_LEFT(pb, a);
+	if(lopb) {
+		SET_LEFT(pb, a);//messes up
 	} else {
-		SET_RIGHT(pb, a);
+		SET_RIGHT(pb, a);//messes up
 	}
 
-	if(a == GET_LEFT(pa)) {
+	if(lopa) {
 		SET_LEFT(pa, b);
 	} else {
 		SET_RIGHT(pa, b);
 	}
+
+	if(pb == a) { //if the two nodes are connected
+		if(la == b) {
+			SET_LEFT(b, a);
+			SET_LEFT(a, rb);
+		} else {
+			SET_RIGHT(b,a);
+			SET_RIGHT(a, lb);
+		}
+		SET_PARENT(a,b);
+	}
+
+
 	if(root == a) root = b;
 	else if(root == b) root = a;
 }
 
-
+int* replace_node_one_child(int* node) {
+	int* p = GET_PARENT(node);
+	if( node == GET_LEFT(p) ) {
+		SET_LEFT(p, GET_LEFT(node));
+		SET_PARENT(GET_LEFT(node), p);
+		return GET_LEFT(node);
+	} else {
+		SET_RIGHT(p, GET_RIGHT(node));
+		SET_PARENT(GET_RIGHT(node), p);
+	}
+	return GET_RIGHT(node);
+}
 
 /*		
 	// if it is a red child nothing needs to be done
@@ -1029,3 +991,33 @@ void swap_nodes(int* a, int* b) {
     return node;
   }
 	*/
+
+	/*if (GET_LEFT(n) == NULL) {
+		child = GET_RIGHT(n);
+	} else {
+		child = GET_LEFT(n);
+	}
+
+	int* p = GET_PARENT(n);
+	if(child != NULL) {
+		if(p != NULL) {
+			SET_PARENT(child, p);
+			if(GET_LEFT(p) == n) {
+				SET_LEFT(p, child);
+			} else {
+				SET_RIGHT(p, child);
+			}
+		} else {
+			root = child;
+		}
+	} else {
+		if (p != NULL) {
+			if(GET_LEFT(p) == n) {
+				SET_LEFT(p, NULL);
+			} else {
+				SET_RIGHT(p, NULL);
+			}
+		} else {
+			root = NULL;
+		}
+	}*/
