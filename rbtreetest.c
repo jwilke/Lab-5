@@ -330,7 +330,7 @@ int* createTree2() {
   runTests(root, 5, round++);
   */
 printTree();
-  node = rem_delete(16);
+  node = rem_delete(24);
 printTree();
   runTests(root, 5, round++);
 
@@ -624,15 +624,11 @@ int* rem_delete(int size) {
 int* delete(int *node) {
 	num_nodes--;
 	int* sorp = getSucPre(node);
-
-	/*int* p = GET_PARENT(node);
-	int* l = GET_LEFT(node);
-	int* r = GET_RIGHT(node);
-	if(sorp == NULL) {
-		printf("size of node: %d\n\n\n", GET_SIZE_T(node));
-	}*/
-	swap_nodes(node, sorp);
-
+	
+	if(sorp != NULL) {
+		//stuff
+		swap_nodes(node, sorp);
+	}
 
 	int* n = delete_sub(node);
 
@@ -887,10 +883,10 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 	if(pb == a) { //if the two nodes are connected
 		if(la == b) {
 			SET_LEFT(b, a);
-			SET_LEFT(a, rb);
+			SET_LEFT(a, lb);
 		} else {
 			SET_RIGHT(b,a);
-			SET_RIGHT(a, lb);
+			SET_RIGHT(a, rb);
 		}
 		SET_PARENT(a,b);
 	}
