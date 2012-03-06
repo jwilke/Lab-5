@@ -329,9 +329,9 @@ int* createTree2() {
   insert(node);
   runTests(root, 5, round++);
   */
-//printTree();
-  node = rem_delete(8);
-//printTree();
+printTree();
+  node = rem_delete(16);
+printTree();
   runTests(root, 5, round++);
 
   //node = rem_delete(16);
@@ -489,41 +489,48 @@ void icase5(int * node) {
 }
 
 void rotate_counter_clock(int * node) {
-  int* p = GET_PARENT(node);
-  int* r = GET_RIGHT(node);
-  int* childs_l = GET_LEFT(r);
+	int* p = GET_PARENT(node);
+	int* r = GET_RIGHT(node);
+	int* childs_l = GET_LEFT(r);
 
-  if(p != NULL) {
-    if(GET_RIGHT(p) == node) SET_RIGHT(p, r);
-    else SET_LEFT(p, r);
-    SET_PARENT(r, p);
-  }
+	if(p != NULL) {
+	if(GET_RIGHT(p) == node) SET_RIGHT(p, r);
+	else SET_LEFT(p, r);
+		SET_PARENT(r, p);
+	}
 
-  SET_LEFT(r,node);
-  SET_PARENT(node,r);
-  SET_RIGHT(node, childs_l);
-  if(childs_l != NULL)
-    SET_PARENT(childs_l, node);
-  if (root == node) root = r;
+	SET_LEFT(r,node);
+	SET_PARENT(node,r);
+	SET_RIGHT(node, childs_l);
+	if(childs_l != NULL)
+		SET_PARENT(childs_l, node);
+	if (root == node) {
+		root = r;
+		SET_PARENT(r, NULL);
+	}
+	
 }
 
 void rotate_clock(int * node) {
-  int* p = GET_PARENT(node);
-  int* l = GET_LEFT(node);
-  int* childs_r = GET_RIGHT(l);
+	int* p = GET_PARENT(node);
+	int* l = GET_LEFT(node);
+	int* childs_r = GET_RIGHT(l);
 
-  if(p != NULL) {
-    if(GET_LEFT(p) == node) SET_LEFT(p, l);
-    else SET_RIGHT(p, l);
-    SET_PARENT(l, p);
-  }
+	if(p != NULL) {
+	if(GET_LEFT(p) == node) SET_LEFT(p, l);
+	else SET_RIGHT(p, l);
+		SET_PARENT(l, p);
+	}
 
-  SET_RIGHT(l,node);
-  SET_PARENT(node, l);
-  SET_LEFT(node, childs_r);
-  if(childs_r != NULL)
-    SET_PARENT(childs_r,node);
-  if (root == node) root = l;
+	SET_RIGHT(l,node);
+	SET_PARENT(node, l);
+	SET_LEFT(node, childs_r);
+	if(childs_r != NULL)
+		SET_PARENT(childs_r,node);
+	if (root == node) {
+		root = l;
+		SET_PARENT(l, NULL);
+	}
 }
 
 int* find(int nsize) {
@@ -738,14 +745,15 @@ void dcase6(int* n) {
 
 int* getSucPre(int* node) {
   int* temp;
+
   if ((temp = GET_LEFT(node)) != NULL) {
-    while(GET_RIGHT(node) != NULL) {
-      temp = GET_RIGHT(node);
+    while(GET_RIGHT(temp) != NULL) {
+      temp = GET_RIGHT(temp);
     }
     return temp;
   } else if ((temp = GET_RIGHT(node)) != NULL) {
-    while(GET_LEFT(node) != NULL) {
-      temp = GET_LEFT(node);
+    while(GET_LEFT(temp) != NULL) {
+      temp = GET_LEFT(temp);
     }
     return temp;
   } else {
