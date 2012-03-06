@@ -98,6 +98,38 @@ int * delete_sub(int * n);
 void swap_nodes(int* a, int* b);
 int* replace_node_one_child(int* node);
 
+int * get_last(int * bp) {
+
+	int* addr = (int*) (MC(bp)-4*WSIZE);
+
+	if (GET_NEXT(root) == bp)
+		return root;
+
+	if (addr == 0) {
+		return NULL;
+	}
+
+	int *last_parent = (int*) GET(addr);
+
+	if (last_parent == 0) 
+		return NULL;
+
+	int *parent_left = GET_LEFT(last_parent);
+	
+	if (parent_left != NULL && GET_NEXT(parent_left) == bp) {
+		return parent_left;
+	}
+
+	int *parent_right = GET_RIGHT(last_parent);
+
+	if (parent_left != NULL && GET_NEXT(parent_right) == bp) {
+		return parent_right;
+	}
+
+	//either allocated or root
+	return NULL;
+}
+
 int main(int argv, char** argc) {
 	dumby = malloc(4*WSIZE);
 	SET_SIZE(dumby, 0);
@@ -329,16 +361,12 @@ int* createTree2() {
 	runTests(root, 5, round++);
 
 
-	node = rem_delete(24);
-	runTests(root, 5, round++);
-
-	node = rem_delete(4);
-	runTests(root, 5, round++);
-
 	node = rem_delete(8);
 	runTests(root, 5, round++);
 
-	node = rem_delete(16);
+printTree();
+
+	node = rem_delete(8);
 	runTests(root, 5, round++);
 
 	printTree();
@@ -500,8 +528,8 @@ void rotate_counter_clock(int * node) {
 	int* childs_l = GET_LEFT(r);
 
 	if(p != NULL) {
-	if(GET_RIGHT(p) == node) SET_RIGHT(p, r);
-	else SET_LEFT(p, r);
+		if(GET_RIGHT(p) == node) SET_RIGHT(p, r);
+		else SET_LEFT(p, r);
 		SET_PARENT(r, p);
 	}
 
@@ -523,8 +551,8 @@ void rotate_clock(int * node) {
 	int* childs_r = GET_RIGHT(l);
 
 	if(p != NULL) {
-	if(GET_LEFT(p) == node) SET_LEFT(p, l);
-	else SET_RIGHT(p, l);
+		if(GET_LEFT(p) == node) SET_LEFT(p, l);
+		else SET_RIGHT(p, l);
 		SET_PARENT(l, p);
 	}
 
@@ -563,68 +591,47 @@ int* find(int nsize) {
 }
 
 int* rem_find(int nsize) {
-  int* current = root;
+	int* current = root;
+	int* closest_seen = NULL;
 
-  while(1) {
-    if(nsize == GET_SIZE_T(current)) break;
-    if(nsize < GET_SIZE_T(current)) { //try to go left
-      if(GET_LEFT(current) == NULL) { // if there's no node to the left, it's the parent
-	break;
-      } else {
-	current = (int*)GET_LEFT(current); // go left and continue
-	continue;
-      }
-    } else { // try to go right
-      if(GET_RIGHT(current) == NULL) { // if there's no node to the right, it's the parent
-	break;
-      } else {
-	current = (int*)GET_RIGHT(current); // go left and continue
-      }
-    }
 
-  }
-  return current;
-}
+	while(1) {
+		if(nsize == GET_SIZE_T(current)) return current;
+		if(nsize < GET_SIZE_T(current)) { //try to go left
+			if(GET_LEFT(current) == NULL) { // if there's no node to the left, it's the parent
+				break;
+			} else {
+				if(closest_seen == NULL) {
+					closest_seen = current;
+				}
+				if((GET_SIZE_T(closest_seen) > nsize) && (GET_SIZE_T(closest_seen) >= GET_SIZE_T(current))) closest_seen = current;
+				current = (int*)GET_LEFT(current); // go left and continue
+				continue;
+			}
+		} else { // try to go right
+			if(GET_RIGHT(current) == NULL) { // if there's no node to the right, it's the parent
+				break;
+			} else {
+				if((GET_SIZE_T(closest_seen) > nsize) && (GET_SIZE_T(closest_seen) >= GET_SIZE_T(current))) closest_seen = current;
+				current = (int*)GET_RIGHT(current); // go left and continue
+			}
+		}
 
-int * get_last(int * bp) {
-
-	int* addr = (int*) (MC(bp)-4*WSIZE);
-
-	if (GET_NEXT(root) == bp)
-		return root;
-
-	if (addr == 0) {
-		return NULL;
 	}
+	if( GET_SIZE_T(closest_seen) >= nsize ) return closest_seen;
+	if(nsize > GET_SIZE_T(current)) return NULL;
 
-	int *last_parent = (int*) GET(addr);
-
-	if (last_parent == 0) 
-		return NULL;
-
-	int *parent_left = GET_LEFT(last_parent);
-	
-	if (parent_left != NULL && GET_NEXT(parent_left) == bp) {
-		return parent_left;
-	}
-
-	int *parent_right = GET_RIGHT(last_parent);
-
-	if (parent_left != NULL && GET_NEXT(parent_right) == bp) {
-		return parent_right;
-	}
-
-	//either allocated or root
 	return NULL;
 }
 
 int* rem_delete(int size) {
-  // find node to delete
-  int * rem = rem_find(size);
-  // delete node
-  delete(rem);
-  // return node
-  return rem;
+	// find node to delete
+	int * rem = rem_find(size);
+	// delete node if it existed
+	if(rem != NULL)
+		delete(rem);
+	// return node
+	return rem;
 }
 
 int* delete(int *node) {
