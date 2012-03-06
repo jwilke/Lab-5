@@ -96,6 +96,13 @@ team_t team = {
 #define BLACK 0
 #define RED   1
 
+static void *extend_heap(size_t words);
+static void *coalesce(void *bp);
+static void *find_fit(size_t asize);
+static void place(void *bp, size_t asize);
+int * get_last(int * bp);
+void unit(int verbose);
+
 
 //private global pointers
 void *heap_listp;
