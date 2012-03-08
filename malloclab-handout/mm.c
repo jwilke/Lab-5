@@ -83,7 +83,8 @@ team_t team = {
 #define SET_SIZE(p, size) 	((p != NULL) ? PUT(MC(p)-WSIZE, PACK_T(size, GET_ALLOC_T(p), GET_RB(p))):(unsigned int)p)
 #define SET_PARENT(p, addr)	((p != NULL) ? PUT(MC(p)+GET_SIZE_T(p), addr):(unsigned int)p)
 #define SET_ALLOC(p, alloc)	((p != NULL) ? PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), alloc, GET_RB(p) ) ):-1)
-#define SET_RB(p, rb)           ((p != NULL) ? PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC(p), rb ) ):(unsigned int)p)
+#define SET_RB(p, rb)           ((p != NULL) ? PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC_T(p), rb ) ):(unsigned int)p)
+
 #define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
 
 #define GET_LEFT(p)		((p != NULL) ? ( (int *) GET(MC(p)-3*(WSIZE)) ):NULL)
@@ -212,16 +213,19 @@ void *mm_malloc(size_t size)
 	
 	// Adjust block size to include overhead and alignment reqs
 	if (size <= DSIZE)
-		asize = 2*DSIZE;
+		asize = DSIZE;
 	else
-		asize = ALIGN(size) + 2*WSIZE;//add two word sizes for alignment
+		asize = ALIGN(size);
+
+	assert(asize%8 == 0);	
 
 	printf("\n***mm_malloc size: %d***\n", asize);
 	// Search the free list for a fit
-	if ((bp = (char*)rem_delete(asize)) != NULL) {//if ((bp = find_fit(asize)) != NULL) {
+	if ((bp = (char*)rem_delete(asize)) != NULL) {
+		SET_ALLOC(bp, 1);
 		if (GET_SIZE_T(bp) > asize + 16) 
 			split(bp, asize);		
-		SET_ALLOC(bp, 1);
+		
 		printTree();
 		//print_node(bp);
 		return bp;
@@ -233,11 +237,12 @@ void *mm_malloc(size_t size)
 	extendsize = MAX(asize+16, CHUNKSIZE);
 	if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
 		return NULL;
-	delete(bp);
-	if(CHUNKSIZE > asize+16) {
+	delete((int*) bp);
+	SET_ALLOC(bp, 1);
+	if(GET_SIZE_T(bp) > asize+16) {
 		split(bp, asize);
 	}
-	SET_ALLOC(bp, 1);
+	
 	//print_node(bp);
 
 	printTree();
@@ -251,12 +256,12 @@ void *mm_malloc(size_t size)
 void mm_free(void *ptr)
 {	
 	printf("\n***free: %d***\n", GET_SIZE_T(ptr));
-	SET_ALLOC(ptr, 0);
 	SET_LEFT(ptr, NULL);
 	SET_RIGHT(ptr, NULL);
 	SET_PARENT(ptr, NULL);
+	SET_ALLOC(ptr, 0);
 	insert(ptr);
-	//print_node(ptr);
+assert(GET_ALLOC_T(ptr) == 0);
 	printTree();
 	coalesce(ptr);
 }
@@ -334,25 +339,23 @@ static void *coalesce(void * bp) {
 	int* next = GET_NEXT(bp);
 	int* last = GET_LAST(bp);
 
-	int* n;
-/*
-	printf("***bp\n");
-	print_node(bp);
-	printf("***next: %p\n", GET_NEXT(bp));
-	if ( (n = GET_NEXT(bp)) != NULL && n > dumby && n < dumby + heap_size + 1)
-		print_node(GET_NEXT(bp));
-	printf("***last: %p\n", GET_LAST(bp));
-	if ( (n = GET_LAST(bp)) != NULL && n > dumby && n < dumby + heap_size + 1)
-		print_node(GET_LAST(bp));
-*/
-	printf("next of root %p\n", GET_NEXT(root));
+	printf("next of bp: %p\n", GET_NEXT(bp));
+	printf("prev_alloc: %d\n", prev_alloc);
+	printf("next_alloc: %d\n", next_alloc);
+	print_node(last);
+
 
 	if((unsigned int)next >= ((unsigned int)(dumby - 8)) + heap_size) next_alloc = 1;
 	if((unsigned int)last < ((unsigned int) (dumby + 1))) prev_alloc = 1;
+	
+	printf("prev_alloc: %d\n", prev_alloc);
+	printf("next_alloc: %d\n", next_alloc);
 
 	if (prev_alloc && next_alloc) { //CASE 1
 		return bp;
 	}
+
+	
 
 	else if (prev_alloc && !next_alloc) { //CASE 2
 		size += GET_SIZE_T(next) + 16;	//GET_SIZE(HDRP(NEXT_BLKP(bp)));
@@ -412,6 +415,7 @@ void split(char* node, size_t size)
 	SET_LEFT(node, NULL);
 	SET_RIGHT(node, NULL);
 	SET_PARENT(node, NULL);
+	SET_ALLOC(node, 1);
 
 	int* next_node = GET_NEXT(node);
 	SET_SIZE(next_node, size_b);
@@ -484,6 +488,7 @@ int* find(int nsize) {
 }
 
 int insert(int * node) { //assumes header/footer is already created
+	assert(GET_ALLOC_T(node) == 0);
   printf("Size: %d\n", GET_SIZE_T(node) > 0);
   assert(GET_SIZE_T(node) > 0);
   int size = GET_SIZE_T(node);
@@ -494,6 +499,8 @@ int insert(int * node) { //assumes header/footer is already created
   SET_RB(node, RED);
   SET_ALLOC(node, 0);
   SET_PARENT(node, NULL);
+	printf("insert start\n");
+	print_node(node);
 
   if(root == NULL) {
     num_nodes++;
@@ -514,27 +521,32 @@ int insert(int * node) { //assumes header/footer is already created
   }
 
   icase1(node);
-
+assert(GET_ALLOC_T(node) == 0);
   return 0;
 }
 
 void icase1(int * node) {
+assert(GET_ALLOC_T(node) == 0);
   if(GET_PARENT(node) == NULL) {
     SET_RB(node, BLACK);
   } else {
     icase2(node);
   }
   SET_RB(root, BLACK);
+assert(GET_ALLOC_T(node) == 0);
 }
 
 void icase2(int * node) {
+assert(GET_ALLOC_T(node) == 0);;
   int* parent = GET_PARENT(node);
   if(GET_RB(parent) == BLACK)
     return;
   else icase3(node);
+assert(GET_ALLOC_T(node) == 0);
 }
 
 void icase3(int * node) {
+assert(GET_ALLOC_T(node) == 0);
   int* parent = GET_PARENT(node);
   int* u = get_sibling(parent); //uncle
 
@@ -546,9 +558,11 @@ void icase3(int * node) {
   } else {
     icase4(node);
   }
+assert(GET_ALLOC_T(node) == 0);
 }
 
 void icase4(int * node) {
+assert(GET_ALLOC_T(node) == 0);
   int* p = GET_PARENT(node);
   int* gp = GET_PARENT(p);
 
@@ -560,9 +574,11 @@ void icase4(int * node) {
     node = GET_RIGHT(node);
   }
   icase5(node);
+assert(GET_ALLOC_T(node) == 0);
 }
 
 void icase5(int * node) {
+assert(GET_ALLOC_T(node) == 0);
   int* p = GET_PARENT(node);
   if(p == NULL) return;
   int* gp = GET_PARENT(p);
@@ -571,6 +587,7 @@ void icase5(int * node) {
   SET_RB(gp, RED);
   if( node == GET_LEFT(p) ) rotate_clock(gp);
   else rotate_counter_clock(gp);
+assert(GET_ALLOC_T(node) == 0);
 }
 
 int* rem_find(int nsize) {
@@ -791,13 +808,30 @@ void rotate_clock(int * node) {
 		root = l;
 		SET_PARENT(l, NULL);
 	}
+			printf("rc\n");
+	print_node(node);
 }
 
 void rotate_counter_clock(int * node) {
 	int* p = GET_PARENT(node);
 	int* r = GET_RIGHT(node);
 	int* childs_l = GET_LEFT(r);
+	/*
+	int pa = GET_ALLOC_T(p);
+	int ra = GET_ALLOC_T(r);
+	int ca = GET_ALLOC_T(childs_l);
+	int na = GET_ALLOC_T(node);\
+	printf("pa alloc: %d\n", pa);
+	printf("pa alloc with GET: %d\n", GET_ALLOC_T(p));
+	printf("ra alloc: %d\n", ra);
+	printf("ra alloc with GET: %d\n", GET_ALLOC_T(r));
+	printf("ca alloc: %d\n", ca);
+	printf("ca alloc with GET: %d\n", GET_ALLOC_T(childs_l));
+	printf("na alloc: %d\n", na);
+	printf("na alloc with GET: %d\n", GET_ALLOC_T(node));
 
+	assert((pa == GET_ALLOC_T(p)) && (ra == GET_ALLOC_T(ra)) && (ca == GET_ALLOC_T(childs_l)) && (na == GET_ALLOC_T(node)));
+	*/
 	if(p != NULL) {
 		if(GET_RIGHT(p) == node) SET_RIGHT(p, r);
 		else SET_LEFT(p, r);
@@ -813,6 +847,9 @@ void rotate_counter_clock(int * node) {
 		root = r;
 		SET_PARENT(r, NULL);
 	}
+			printf("rcc\n");
+	
+	
 	
 }
 
@@ -967,7 +1004,7 @@ void print_tree_level(struct lnode* olist) {
     if(GET_RB(olist->data) == 0) color = 'B';
     else color = 'R';
 
-    printf("%p:%d:%c ", olist->data, GET_SIZE_T(olist->data), color);
+    printf("%p:%d:%d:%c ", olist->data, GET_ALLOC_T(olist->data), GET_SIZE_T(olist->data), color);
     if(GET_LEFT(olist->data) != NULL) {
       temp = malloc(sizeof(struct lnode));
       temp->data = GET_LEFT(olist->data);
@@ -1001,10 +1038,13 @@ void print_node(int * node) {
   printf("NODE:\nLEFT: %p\n", GET_LEFT(node));
   printf("RIGHT: %p\n", GET_RIGHT(node));
   printf("SIZE: %d\n", GET_SIZE_T(node));
+  printf("ALLOC: %d\n", GET_ALLOC_T(node));
   printf("RB: %d\n", GET_RB(node));
   printf("PARENT: %p\n\n", GET_PARENT(node));
   return;
 }
+
+//int node_integ(
 
 
 
