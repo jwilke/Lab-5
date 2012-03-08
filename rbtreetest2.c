@@ -132,6 +132,7 @@ int * get_last(int * bp) {
 
 int main(int argv, char** argc) {
 	dumby = malloc(4*WSIZE);
+	dumby += 3;
 	SET_SIZE(dumby, 0);
 	SET_RB(dumby, BLACK);
 	SET_ALLOC(dumby, 1);
@@ -315,8 +316,12 @@ int* createTree() {
 }
 
 int* createTree2() {
-	int size = 16*6 + 4 + 8 + 12 + 16 + 20 + 24 + 4;
-
+	int size = 4*4;
+	int i;
+	int upper = 10;
+	for (i = 1; i < upper; i++) {
+		size+=i*4 + 4*4;
+	}
 
 
 	int * space = malloc(size);
@@ -335,42 +340,47 @@ int* createTree2() {
 	SET_PARENT(dumby, NULL);
 	node = GET_NEXT(node);
 
-  
-	createNode(node, 24);
-	insert(node);
-	node = GET_NEXT(node);
+	int allPassed = 1;
+	int includes[100];
+	includes[0] = 0;
+	int num_adds = 0;
 
-	runTests(root, 5, round++);
+  	for (i = 1; i < upper; i++) {
+		includes[i] = 1;
+		num_adds++;
+		createNode(node, 4*i);
+		insert(node);
+		node = GET_NEXT(node);
+		allPassed = runTests(root, 5, round++) && allPassed;
 
-	createNode(node, 8);
-	insert(node);
-	node = GET_NEXT(node);
-
-	runTests(root, 5, round++);
-
-	createNode(node, 16);
-	insert(node);
-	node = GET_NEXT(node);
-
-	runTests(root, 5, round++);
-
-	createNode(node, 4);
-	insert(node);
-	node = GET_NEXT(node);
-
-	runTests(root, 5, round++);
+		printTree();
+	}
 
 
-	node = rem_delete(8);
-	runTests(root, 5, round++);
-
-printTree();
-
-	node = rem_delete(8);
-	runTests(root, 5, round++);
+	int ran;
+	printf("num_adds: %d\n", num_adds);
+	while (num_adds > 0) {
+		srand(time(NULL));
+		ran = rand();
+		if (includes[ran % upper] == 1) {
+			node = rem_delete((ran%upper)*4);
+			runTests(root, 5, round++);
+			printf("ran: %d\n", (ran%upper)*4);
+			printTree();
+			includes[ran % upper] = 0;
+			num_adds--;
+		}
+	}
 
 	printTree();
-	
+	if (allPassed) {
+		printf("\n\n\nComplete Sucess!\n\n\n");
+	} else {
+		printf("\n\n\nProblems...\n\n\n");
+	}
+
+	printf("size: %d\n", size);
+	free(space);
 	return root;
 }
 
@@ -592,6 +602,48 @@ int* find(int nsize) {
 
 int* rem_find(int nsize) {
 	int* current = root;
+	int* closest_seen;
+	if (GET_SIZE_T(root) >= nsize)
+		closest_seen = root;
+	else
+		closest_seen = NULL;
+
+
+	while(1) {
+		if(nsize == GET_SIZE_T(current)) return current;
+		if(nsize < GET_SIZE_T(current)) { 
+			if(closest_seen == NULL) {
+				closest_seen = current;
+			}
+			if((GET_SIZE_T(closest_seen) > nsize) && 
+				(GET_SIZE_T(closest_seen) >= GET_SIZE_T(current))) 
+				closest_seen = current;
+				
+			if(GET_LEFT(current) == NULL)
+				break;
+
+			current = (int*)GET_LEFT(current);
+
+			continue;
+			
+		} else { 
+			
+			if(GET_RIGHT(current) == NULL) { 
+				return closest_seen;
+			}
+			current = (int*)GET_RIGHT(current); 
+			
+		}
+
+	}
+	if( GET_SIZE_T(closest_seen) >= nsize ) return closest_seen;
+	if(nsize > GET_SIZE_T(current)) return NULL;
+
+	return NULL;
+}
+/*
+int* rem_find(int nsize) {
+	int* current = root;
 	int* closest_seen = NULL;
 
 
@@ -623,10 +675,13 @@ int* rem_find(int nsize) {
 
 	return NULL;
 }
-
+*/
 int* rem_delete(int size) {
 	// find node to delete
+	printf("***************************\n");
 	int * rem = rem_find(size);
+	printf("output: %p\n", rem);
+	printf("***************************\n");
 	// delete node if it existed
 	if(rem != NULL)
 		delete(rem);
