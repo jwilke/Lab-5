@@ -104,11 +104,12 @@ team_t team = {
 void printTree();
 void print_tree_level(struct lnode* olist);
 void print_node(int * node);
+void print_order();
 
 
 //private global pointers
 //void *heap_listp;
-static void *root;  //base node of RBTree
+static void *root = NULL;  //base node of RBTree
 static int num_nodes = 0;
 static int * dumby = NULL;  //first node of the heap. used for removal in rbtree
 static int heap_size = 0;
@@ -160,25 +161,27 @@ int* replace_node_one_child(int* node);
  */
 int mm_init(void)
 {
-	printf("\n***mm_init***\n");
+
 	root = NULL;
 
-	if ((dumby = mem_sbrk(9*WSIZE)) == (void *)-1) return -1;
-	printf("dumby: %p\n", dumby);
-	dumby += 8;
-	SET_SIZE(dumby, 0);
-	SET_RB(dumby, BLACK);
-	SET_ALLOC(dumby, 1);
-	SET_LEFT(dumby, NULL);
-	SET_RIGHT(dumby, NULL);
-	SET_PARENT(dumby, NULL);
-	heap_size = 9;
-	num_nodes = 0;
-	
-	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
-		return -1;
+		if ((dumby = mem_sbrk(9*WSIZE)) == (void *)-1) return -1;
 
-	return 0;
+		dumby += 8;
+		SET_SIZE(dumby, 0);
+		SET_RB(dumby, BLACK);
+		SET_ALLOC(dumby, 1);
+		SET_LEFT(dumby, NULL);
+		SET_RIGHT(dumby, NULL);
+		SET_PARENT(dumby, NULL);
+		heap_size = 9;
+		num_nodes = 0;
+
+		if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
+			return -1;
+	
+	
+
+	return 1;
 }
 
 
@@ -227,9 +230,6 @@ void *mm_malloc(size_t size)
 		split(bp, asize);
 	}
 	SET_ALLOC(bp, 1);
-	////print_node(bp);
-
-	//printTree();
 	return bp;
 }
 
@@ -245,7 +245,6 @@ void mm_free(void *ptr)
 	SET_ALLOC(ptr, 0);
 	insert(ptr);
 	assert(GET_ALLOC_T(ptr) == 0);
-	//printTree();
 	coalesce(ptr);
 }
 
@@ -292,7 +291,6 @@ static void *extend_heap(size_t words) {
 	bp += 3*WSIZE;// + heap_size;
 
 	//Init free block header/footer and the epilogue header
-	
 	SET_SIZE(bp, size-(4*WSIZE));		//Set size of base node
 
 	SET_LEFT(bp, NULL);
@@ -312,10 +310,6 @@ static void *coalesce(void * bp) {
 	size_t size = GET_SIZE_T(bp);			//GET_SIZE(HDRP(bp));
 	int* next = GET_NEXT(bp);
 	int* last = GET_LAST(bp);
-
-
-
-
 
 	if((unsigned int)next >= ((unsigned int)(dumby - 8)) + heap_size) next_alloc = 1;
 	if((unsigned int)last < ((unsigned int) (dumby + 1))) prev_alloc = 1;
@@ -365,8 +359,8 @@ static void *coalesce(void * bp) {
 		SET_PARENT(bp, NULL);
 		insert(bp);
 	}
-	//printTree();
-	return bp;
+
+	return coalesce(bp);
 }
 
 void split(char* node, size_t size)
@@ -1557,4 +1551,14 @@ void unit(int verbose) {
 		printf("All %d tests passed\n\n", test-1);
 	}
 	free(bp);
+}
+
+void print_order() {
+	printf("***********************\n");
+	int* temp = dumby;
+	while(temp < mem_heap_hi()) {
+		printf("%p:%d:%d\n", temp, GET_ALLOC_T(temp), GET_SIZE_T(temp));
+		temp = GET_NEXT(temp);
+	}
+	printf("***********************\n");
 }
