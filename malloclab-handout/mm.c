@@ -161,18 +161,6 @@ int* replace_node_one_child(int* node);
 int mm_init(void)
 {
 	printf("\n***mm_init***\n");
-	//Create the initial empty heap
-	/*if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)	return -1;
-
-	PUT(heap_listp, 0);				// Alignment padding
-	PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1));	// Prologue header
-	PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1));	// Prologue footer
-	PUT(heap_listp + (3*WSIZE), PACK(0, 1));	// Epilogue header
-	heap_listp += (2*WSIZE);
-
-	//Extend the empty heap with a free block of CHUNKSIZE bytes
-	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
-		return -1;*/
 	root = NULL;
 
 	if ((dumby = mem_sbrk(9*WSIZE)) == (void *)-1) return -1;
@@ -184,7 +172,7 @@ int mm_init(void)
 	SET_LEFT(dumby, NULL);
 	SET_RIGHT(dumby, NULL);
 	SET_PARENT(dumby, NULL);
-	heap_size += 9;
+	heap_size = 9;
 	//print_node(dumby);
 	printTree();
 	
@@ -225,7 +213,7 @@ void *mm_malloc(size_t size)
 		SET_ALLOC(bp, 1);
 		if (GET_SIZE_T(bp) > asize + 16) 
 			split(bp, asize);		
-		
+		SET_ALLOC(bp, 1);
 		printTree();
 		//print_node(bp);
 		return bp;
@@ -242,7 +230,7 @@ void *mm_malloc(size_t size)
 	if(GET_SIZE_T(bp) > asize+16) {
 		split(bp, asize);
 	}
-	
+	SET_ALLOC(bp, 1);
 	//print_node(bp);
 
 	printTree();
@@ -261,7 +249,7 @@ void mm_free(void *ptr)
 	SET_PARENT(ptr, NULL);
 	SET_ALLOC(ptr, 0);
 	insert(ptr);
-assert(GET_ALLOC_T(ptr) == 0);
+	assert(GET_ALLOC_T(ptr) == 0);
 	printTree();
 	coalesce(ptr);
 }
@@ -488,7 +476,6 @@ int* find(int nsize) {
 }
 
 int insert(int * node) { //assumes header/footer is already created
-	assert(GET_ALLOC_T(node) == 0);
   printf("Size: %d\n", GET_SIZE_T(node) > 0);
   assert(GET_SIZE_T(node) > 0);
   int size = GET_SIZE_T(node);
@@ -655,7 +642,7 @@ int* delete(int *node) {
 	}
 
 	delete_sub(node);
-
+	SET_ALLOC(node, 1);
 	return node;
 }
 
