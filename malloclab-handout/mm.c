@@ -165,6 +165,7 @@ int mm_init(void)
 		return -1;*/
 
 	if ((dumby = mem_sbrk(4*WSIZE)) == (void *)-1) return -1;
+	dumby += 3;
 	SET_SIZE(dumby, 0);
 	SET_RB(dumby, BLACK);
 	SET_ALLOC(dumby, 1);
