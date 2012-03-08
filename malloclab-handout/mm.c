@@ -237,23 +237,28 @@ void mm_free(void *ptr)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
-    void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
-    copySize = GET_SIZE_T(oldptr);    //*(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    if(size == copySize) return ptr;
+	void *oldptr = ptr;
+	void *newptr;
+	size_t copySize;
+	copySize = GET_SIZE_T(oldptr);    //*(size_t *)((char *)oldptr - SIZE_T_SIZE);
+	if(size == copySize) return ptr;
 
-    newptr = mm_malloc(size);
-    if(oldptr == NULL)
+	newptr = mm_malloc(size);
+	if(oldptr == NULL)
+		return newptr;
+	if(size == 0) {
+		mm_free(oldptr);
+		return NULL;
+	}
+
+	if (newptr == NULL)
+		return NULL;
+
+	if (size < copySize)
+	copySize = size;
+	memcpy(newptr, oldptr, copySize);
+	mm_free(oldptr);
 	return newptr;
-    if (newptr == NULL)
-      return NULL;
-    
-    if (size < copySize)
-      copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
-    return newptr;
 }
 
 static void *extend_heap(size_t words) {
