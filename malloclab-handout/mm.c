@@ -231,19 +231,15 @@ void *mm_malloc(size_t size)
 	printf("root size: %d\n", GET_SIZE_T(root));
 
 	// No fit found. Get more memory and place the block
-	extendsize = MAX(asize+4, CHUNKSIZE);
+	extendsize = MAX(asize+16, CHUNKSIZE);
 	if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
 		return NULL;
-	if(CHUNKSIZE > asize+4) {
+	if(CHUNKSIZE > asize+16) {
 		split(bp, asize);
 		SET_ALLOC(bp, 1);
 	}
 	//print_node(bp);
 
-	// call split
-	if (extendsize > asize+4)
-		split(bp, asize);
-	// return first part
 
 
 	printTree();
@@ -307,7 +303,7 @@ static void *extend_heap(size_t words) {
 	if((long)(bp = mem_sbrk(size)) == -1)
 		return NULL;
 		
-	heap_size += (size / WSIZE);
+	heap_size += (size);
 
 
 	printf("extend - bp: %p\n", bp);
@@ -326,9 +322,6 @@ static void *extend_heap(size_t words) {
 
 	insert((int*)bp);
 	printTree();
-	//printf("root size: %d\n", GET_SIZE_T(root));
-	//print_node(root);
-	//print_node(bp);
 	return coalesce(bp);
 }
 
@@ -341,6 +334,19 @@ static void *coalesce(void * bp) {
 	size_t size = GET_SIZE_T(bp);			//GET_SIZE(HDRP(bp));
 	int* next = GET_NEXT(bp);
 	int* last = GET_LAST(bp);
+
+	int* n;
+
+	printf("***bp\n");
+	print_node(bp);
+	printf("***next: %p\n", GET_NEXT(bp));
+	if ( (n = GET_NEXT(bp)) != NULL && n > dumby && n < dumby + heap_size + 1)
+		print_node(GET_NEXT(bp));
+	printf("***last: %p\n", GET_LAST(bp));
+	if ( (n = GET_LAST(bp)) != NULL && n > dumby && n < dumby + heap_size + 1)
+		print_node(GET_LAST(bp));
+
+	printf("next of root %p\n", GET_NEXT(root));
 
 	if((unsigned int)next >= ((unsigned int)(dumby - 8)) + heap_size) next_alloc = 1;
 	if((unsigned int)last < ((unsigned int) (dumby + 1))) prev_alloc = 1;
@@ -402,7 +408,7 @@ void split(char* node, size_t size)
 {
 	
 	printf("split node size: %d size: %d\n", GET_SIZE_T(node), size);
-	int size_b = GET_SIZE_T(node) - size - 4;
+	int size_b = GET_SIZE_T(node) - size - 4*WSIZE;
 	SET_SIZE(node, size);
 	int* next_node = GET_NEXT(node);
 	SET_SIZE(next_node, size_b);
@@ -967,12 +973,13 @@ void print_tree_level(struct lnode* olist) {
 }
 
 void print_node(int * node) {
-  printf("\nCURRENT ADDRESS: %p\n", node);
-  printf("\nNODE:\nLEFT: %p\n", GET_LEFT(node));
+	if (node == NULL) return;
+  printf("CURRENT ADDRESS: %p\n", node);
+  printf("NODE:\nLEFT: %p\n", GET_LEFT(node));
   printf("RIGHT: %p\n", GET_RIGHT(node));
   printf("SIZE: %d\n", GET_SIZE_T(node));
   printf("RB: %d\n", GET_RB(node));
-  printf("PARENT: %p\n", GET_PARENT(node));
+  printf("PARENT: %p\n\n", GET_PARENT(node));
   return;
 }
 
