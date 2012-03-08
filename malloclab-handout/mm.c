@@ -224,7 +224,6 @@ void *mm_malloc(size_t size)
 		SET_ALLOC(bp, 1);
 		printTree();
 		//print_node(bp);
-		assert(GET_PARENT(bp) < dumby);
 		return bp;
 	}
 	printf("bp: %p\n", bp);
@@ -234,13 +233,12 @@ void *mm_malloc(size_t size)
 	extendsize = MAX(asize+16, CHUNKSIZE);
 	if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
 		return NULL;
+	delete(bp);
 	if(CHUNKSIZE > asize+16) {
 		split(bp, asize);
-		SET_ALLOC(bp, 1);
 	}
+	SET_ALLOC(bp, 1);
 	//print_node(bp);
-
-
 
 	printTree();
 	return bp;
@@ -319,6 +317,7 @@ static void *extend_heap(size_t words) {
 	SET_LEFT(bp, NULL);
 	SET_RIGHT(bp, NULL);
 	SET_PARENT(bp, NULL);
+	SET_ALLOC(bp, 0);
 
 	insert((int*)bp);
 	printTree();
@@ -336,7 +335,7 @@ static void *coalesce(void * bp) {
 	int* last = GET_LAST(bp);
 
 	int* n;
-
+/*
 	printf("***bp\n");
 	print_node(bp);
 	printf("***next: %p\n", GET_NEXT(bp));
@@ -345,7 +344,7 @@ static void *coalesce(void * bp) {
 	printf("***last: %p\n", GET_LAST(bp));
 	if ( (n = GET_LAST(bp)) != NULL && n > dumby && n < dumby + heap_size + 1)
 		print_node(GET_LAST(bp));
-
+*/
 	printf("next of root %p\n", GET_NEXT(root));
 
 	if((unsigned int)next >= ((unsigned int)(dumby - 8)) + heap_size) next_alloc = 1;
@@ -356,7 +355,7 @@ static void *coalesce(void * bp) {
 	}
 
 	else if (prev_alloc && !next_alloc) { //CASE 2
-		size += GET_SIZE_T(next) + 4;	//GET_SIZE(HDRP(NEXT_BLKP(bp)));
+		size += GET_SIZE_T(next) + 16;	//GET_SIZE(HDRP(NEXT_BLKP(bp)));
 		delete(bp);
 		delete(next);
 		SET_SIZE(bp, size);
@@ -373,7 +372,7 @@ static void *coalesce(void * bp) {
 		PUT(FTRP(bp), PACK(size, 0));
 		PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
 		bp = PREV_BLKP(bp);*/
-		size += GET_SIZE_T(last) + 4;
+		size += GET_SIZE_T(last) + 16;
 		delete(last);
 		delete(bp);
 		bp = last;
@@ -389,7 +388,7 @@ static void *coalesce(void * bp) {
 		PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
 		PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
 		bp = PREV_BLKP(bp);*/
-		size += GET_SIZE_T(next) + GET_SIZE_T(last) + 8;
+		size += GET_SIZE_T(next) + GET_SIZE_T(last) + 32;
 		delete(last);
 		delete(bp);
 		delete(next);
@@ -406,7 +405,6 @@ static void *coalesce(void * bp) {
 
 void split(char* node, size_t size)
 {
-	
 	printf("split node size: %d size: %d\n", GET_SIZE_T(node), size);
 	int size_b = GET_SIZE_T(node) - size - 4*WSIZE;
 	SET_SIZE(node, size);
