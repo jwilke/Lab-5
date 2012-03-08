@@ -159,7 +159,7 @@ int* replace_node_one_child(int* node);
  */
 int mm_init(void)
 {
-	printf("\nmm_init\n");
+	printf("\n***mm_init***\n");
 	//Create the initial empty heap
 	/*if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)	return -1;
 
@@ -172,8 +172,9 @@ int mm_init(void)
 	//Extend the empty heap with a free block of CHUNKSIZE bytes
 	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
 		return -1;*/
+	root = NULL;
 
-	if ((dumby = mem_sbrk(4*DSIZE)) == (void *)-1) return -1;
+	if ((dumby = mem_sbrk(9*WSIZE)) == (void *)-1) return -1;
 	printf("dumby: %p\n", dumby);
 	dumby += 8;
 	SET_SIZE(dumby, 0);
@@ -184,6 +185,7 @@ int mm_init(void)
 	SET_PARENT(dumby, NULL);
 	heap_size += 8;
 	//print_node(dumby);
+	printTree();
 	
 	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
 		return -1;
@@ -212,17 +214,21 @@ void *mm_malloc(size_t size)
 	if (size <= DSIZE)
 		asize = 2*DSIZE;
 	else
-		asize = ALIGN(size) + WSIZE;//DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);
+		asize = ALIGN(size) + 2*WSIZE;//add two word sizes for alignment
 
-	printf("\nmm_malloc size: %d\n", asize);
+	printf("\n***mm_malloc size: %d***\n", asize);
 	// Search the free list for a fit
 	if ((bp = (char*)rem_delete(asize)) != NULL) {//if ((bp = find_fit(asize)) != NULL) {
-		if (GET_SIZE(bp) > asize) 
+		if (GET_SIZE_T(bp) > asize) 
 			split(bp, asize);		
 		SET_ALLOC(bp, 1);
+		printTree();
 		//print_node(bp);
+		assert(GET_PARENT(bp) < dumby);
 		return bp;
 	}
+	printf("bp: %p\n", bp);
+	printf("root size: %d\n", GET_SIZE_T(root));
 
 	// No fit found. Get more memory and place the block
 	extendsize = MAX(asize+4, CHUNKSIZE);
@@ -232,6 +238,15 @@ void *mm_malloc(size_t size)
 		split(bp, asize);
 		SET_ALLOC(bp, 1);
 	}
+	//print_node(bp);
+
+	// call split
+	if (extendsize > asize+4)
+		split(bp, asize);
+	// return first part
+
+
+	printTree();
 	return bp;
 }
 
@@ -241,14 +256,15 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {	
-	printf("\nfree: %d\n", GET_SIZE_T(ptr));
+	printf("\n***free: %d***\n", GET_SIZE_T(ptr));
 	SET_ALLOC(ptr, 0);
 	SET_LEFT(ptr, NULL);
 	SET_RIGHT(ptr, NULL);
 	SET_PARENT(ptr, NULL);
 	insert(ptr);
+	//print_node(ptr);
+	printTree();
 	coalesce(ptr);
-	print_node(ptr);
 }
 
 /*
@@ -282,7 +298,7 @@ void *mm_realloc(void *ptr, size_t size)
 }
 
 static void *extend_heap(size_t words) {	
-	printf("\nextend_heap words: %d\n", words);
+	printf("\n***extend_heap words: %d***\n", words);
 	char *bp;
 	size_t size;
 
@@ -295,10 +311,10 @@ static void *extend_heap(size_t words) {
 
 
 	printf("extend - bp: %p\n", bp);
-	printf("dumby base: %p\n", dumby -3);
-	printf("ending: %p\n", dumby - 3 + heap_size);
+	printf("dumby base: %p\n", dumby - 8);
+	printf("ending: %p\n", dumby - 8 + heap_size);
 
-	bp += 12;// + heap_size;
+	bp += 3*WSIZE;// + heap_size;
 
 	//Init free block header/footer and the epilogue header
 	
@@ -309,20 +325,25 @@ static void *extend_heap(size_t words) {
 	SET_PARENT(bp, NULL);
 
 	insert((int*)bp);
-
+	printTree();
+	//printf("root size: %d\n", GET_SIZE_T(root));
+	//print_node(root);
+	//print_node(bp);
 	return coalesce(bp);
 }
 
 
-static void *coalesce(void * bp) {  // search tree for coalesce, HOW DO YOU DO THAT WITH THE TREE???
-	//printf("coalesce\n");
+static void *coalesce(void * bp) {
+	printf("coalesce\n");
+	//print_node(bp);
 	size_t prev_alloc = GET_ALLOC_T(GET_LAST(bp)); 	//GET_ALLOC(FTRP(PREV_BLKP(bp)));
 	size_t next_alloc = GET_ALLOC_T(GET_NEXT(bp));	//GET_ALLOC(HDRP(NEXT_BLKP(bp)));
 	size_t size = GET_SIZE_T(bp);			//GET_SIZE(HDRP(bp));
 	int* next = GET_NEXT(bp);
 	int* last = GET_LAST(bp);
 
-	if((unsigned int)next >= ((unsigned int)(dumby - 3)) + heap_size) next_alloc = 1;
+	if((unsigned int)next >= ((unsigned int)(dumby - 8)) + heap_size) next_alloc = 1;
+	if((unsigned int)last < ((unsigned int) (dumby + 1))) prev_alloc = 1;
 
 	if (prev_alloc && next_alloc) { //CASE 1
 		return bp;
@@ -373,19 +394,23 @@ static void *coalesce(void * bp) {  // search tree for coalesce, HOW DO YOU DO T
 		SET_PARENT(bp, NULL);
 		insert(bp);
 	}
+	printTree();
 	return bp;
 }
 
 void split(char* node, size_t size)
-{	//printf("split node size: %d size: %d\n", GET_SIZE_T(node), size);
-	int size_b = GET_SIZE(node) - size - 4;
+{
+	
+	printf("split node size: %d size: %d\n", GET_SIZE_T(node), size);
+	int size_b = GET_SIZE_T(node) - size - 4;
 	SET_SIZE(node, size);
 	int* next_node = GET_NEXT(node);
 	SET_SIZE(next_node, size_b);
-	SET_LEFT(bp, NULL);
-	SET_RIGHT(bp, NULL);
-	SET_PARENT(bp, NULL);
+	SET_LEFT(node, NULL);
+	SET_RIGHT(node, NULL);
+	SET_PARENT(node, NULL);
 	insert(next_node);
+	printTree();
 	return;
 }
 
@@ -396,7 +421,7 @@ int * get_last(int * bp) {
 	if (GET_NEXT(root) == bp)
 		return root;
 
-	if (addr == 0) {
+	if (addr == 0 || addr < dumby + 4) {
 		return NULL;
 	}
 
@@ -457,12 +482,11 @@ int insert(int * node) { //assumes header/footer is already created
   SET_ALLOC(node, 0);
   SET_PARENT(node, NULL);
 
-  if(num_nodes == 0) {
+  if(root == NULL) {
     num_nodes++;
     root = node;
     SET_RB(root, BLACK);
     SET_PARENT(root, NULL);
-	printTree();
     return 1;
   }
   num_nodes++;
@@ -538,29 +562,37 @@ void icase5(int * node) {
 
 int* rem_find(int nsize) {
 	int* current = root;
-	int* closest_seen = NULL;
+	int* closest_seen;
+	if (GET_SIZE_T(root) >= nsize)
+		closest_seen = root;
+	else
+		closest_seen = NULL;
 
 
 	while(1) {
 		if(nsize == GET_SIZE_T(current)) return current;
-		if(nsize < GET_SIZE_T(current)) { //try to go left
-			if(GET_LEFT(current) == NULL) { // if there's no node to the left, it's the parent
-				break;
-			} else {
-				if(closest_seen == NULL) {
-					closest_seen = current;
-				}
-				if((GET_SIZE_T(closest_seen) > nsize) && (GET_SIZE_T(closest_seen) >= GET_SIZE_T(current))) closest_seen = current;
-				current = (int*)GET_LEFT(current); // go left and continue
-				continue;
+		if(nsize < GET_SIZE_T(current)) { 
+			if(closest_seen == NULL) {
+				closest_seen = current;
 			}
-		} else { // try to go right
-			if(GET_RIGHT(current) == NULL) { // if there's no node to the right, it's the parent
+			if((GET_SIZE_T(closest_seen) > nsize) && 
+				(GET_SIZE_T(closest_seen) >= GET_SIZE_T(current))) 
+				closest_seen = current;
+				
+			if(GET_LEFT(current) == NULL)
 				break;
-			} else {
-				if((GET_SIZE_T(closest_seen) > nsize) && (GET_SIZE_T(closest_seen) >= GET_SIZE_T(current))) closest_seen = current;
-				current = (int*)GET_RIGHT(current); // go left and continue
+
+			current = (int*)GET_LEFT(current);
+
+			continue;
+			
+		} else { 
+			
+			if(GET_RIGHT(current) == NULL) { 
+				return closest_seen;
 			}
+			current = (int*)GET_RIGHT(current); 
+			
 		}
 
 	}
@@ -573,6 +605,7 @@ int* rem_find(int nsize) {
 int* rem_delete(int size) {
 	// find node to delete
 	int * rem = rem_find(size);
+	printf("***rem_delete rem: %p***\n", rem);
 	// delete node if it existed
 	if(rem != NULL)
 		delete(rem);
@@ -884,7 +917,7 @@ int* replace_node_one_child(int* node) {
 
 
 void printTree() {
-	printf("*****************\nroot\n");
+	printf("**********************\nroot\n");
   struct lnode* printtree = malloc(sizeof(struct lnode));
   printtree->data = root;
   printtree->next = NULL;
@@ -905,7 +938,7 @@ void print_tree_level(struct lnode* olist) {
     if(GET_RB(olist->data) == 0) color = 'B';
     else color = 'R';
 
-    printf("%d:%c ", GET_SIZE_T(olist->data), color);
+    printf("%p:%d:%c ", olist->data, GET_SIZE_T(olist->data), color);
     if(GET_LEFT(olist->data) != NULL) {
       temp = malloc(sizeof(struct lnode));
       temp->data = GET_LEFT(olist->data);
