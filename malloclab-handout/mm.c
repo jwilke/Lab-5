@@ -96,21 +96,25 @@ team_t team = {
 #define BLACK 0
 #define RED   1
 
-static void *extend_heap(size_t words);
-static void *coalesce(void *bp);
-static void *find_fit(size_t asize);
-static void place(void *bp, size_t asize);
-int * get_last(int * bp);
-void unit(int verbose);
-
 
 //private global pointers
-void *heap_listp;
+//void *heap_listp;
 static void *root;  //base node of RBTree
-
 static int num_nodes = 0;
-static int * basepointer = NULL;
-static int * dumby = NULL;
+static int * dumby = NULL;  //first node of the heap. used for removal in rbtree
+static int heap_size = 0;
+
+//the project functions
+int mm_init(void);
+void *mm_malloc(size_t size);
+void mm_free(void *ptr);
+void *mm_realloc(void *ptr, size_t size);
+
+//the project helper functions
+static void *extend_heap(size_t words);
+static void *coalesce(void *bp);
+int * get_last(int * bp);
+void split(char* node, size_t size);
 
 //insert functions
 int* find(int nsize); // find the parent that leaf of size nsize would have
@@ -167,13 +171,15 @@ int mm_init(void)
 	SET_LEFT(dumby, NULL);
 	SET_RIGHT(dumby, NULL);
 	SET_PARENT(dumby, NULL);
+	heap_size += 4;
 	
 	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
 		return -1;
 
 	return 0;
-
 }
+
+
 
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
@@ -187,31 +193,32 @@ void *mm_malloc(size_t size)
 	char *bp;
 
 	// Ignore spurious requests
-	if (size ==0)
+	if (size == 0)
 		return NULL;
 	
 	// Adjust block size to include overhead and alignment reqs
 	if (size <= DSIZE)
-		asize = 2*DSIZE;
+		asize = DSIZE;
 	else
-		asize = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);
+		asize = ALIGN(size);//DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);
 
 	// Search the free list for a fit
-	if ((bp = rem_delete(asize)) != NULL) {//if ((bp = find_fit(asize)) != NULL) {
-		if (GET_SIZE(bp) >= asize) 
+	if ((bp = (char*)rem_delete(asize)) != NULL) {//if ((bp = find_fit(asize)) != NULL) {
+		if (GET_SIZE(bp) > asize) 
 			split(bp, asize);		
-		else
-			place(bp, asize);
+		SET_ALLOC(bp, 1);
 		return bp;
 	}
 
 	// No fit found. Get more memory and place the block
-	extendsize = MAX(asize, CHUNKSIZE);
+	extendsize = MAX(asize+4, CHUNKSIZE);
 	if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
 		return NULL;
-	place(bp, asize);//change to split
+	if(CHUNKSIZE > asize+4) {
+		split(bp, asize);
+		SET_ALLOC(bp, 1);
+	}
 	return bp;
-
 }
 
 
@@ -220,13 +227,9 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
-
-	size_t size = GET_SIZE(HDRP(ptr));
-	
-	PUT(HDRP(ptr), PACK(size, 0));
-	PUT(FTRP(ptr), PACK(size, 0));
+	SET_ALLOC(ptr, 0);
+	insert(ptr);
 	coalesce(ptr);
-
 }
 
 /*
@@ -237,11 +240,15 @@ void *mm_realloc(void *ptr, size_t size)
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
-    
+    copySize = GET_SIZE_T(oldptr);    //*(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    if(size == copySize) return ptr;
+
     newptr = mm_malloc(size);
+    if(oldptr == NULL)
+	return newptr;
     if (newptr == NULL)
       return NULL;
-    copySize = GET_SIZE(HDRP(oldptr));    //*(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    
     if (size < copySize)
       copySize = size;
     memcpy(newptr, oldptr, copySize);
@@ -257,74 +264,76 @@ static void *extend_heap(size_t words) {
 	size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
 	if((long)(bp = mem_sbrk(size)) == -1)
 		return NULL;
+	heap_size += (size / WSIZE);
 
 	//Init free block header/footer and the epilogue header
-	//SET_RIGHT(root, bp); //add to tree
-	SET_LEFT(bp, NULL);			//Set left pointer
-	SET_RIGHT(bp, NULL);			//Set right pointer
-	SET_SIZE(bp, size-(3*WSIZE));		//Set size of base node
-
+	bp += 12;
+	SET_SIZE(bp, size-(4*WSIZE));		//Set size of base node
+	insert((int*)bp);
 	return coalesce(bp);
 }
 
 
 static void *coalesce(void * bp) {  // search tree for coalesce, HOW DO YOU DO THAT WITH THE TREE???
-	size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
-	size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-	size_t size = GET_SIZE(HDRP(bp));
+	size_t prev_alloc = GET_ALLOC_T(GET_LAST(bp)); 	//GET_ALLOC(FTRP(PREV_BLKP(bp)));
+	size_t next_alloc = GET_ALLOC_T(GET_NEXT(bp));	//GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+	size_t size = GET_SIZE_T(bp);			//GET_SIZE(HDRP(bp));
+	int* next = GET_NEXT(bp);
+	int* last = GET_LAST(bp);
+
+	if((unsigned int)next >= ((unsigned int)(dumby - 3)) + heap_size) next_alloc = 1;
 
 	if (prev_alloc && next_alloc) { //CASE 1
 		return bp;
 	}
 
 	else if (prev_alloc && !next_alloc) { //CASE 2
-		size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-		PUT(HDRP(bp), PACK(size, 0));
-		PUT(FTRP(bp), PACK(size, 0));
+		size += GET_SIZE_T(next) + 4;	//GET_SIZE(HDRP(NEXT_BLKP(bp)));
+		delete(bp);
+		delete(next);
+		SET_SIZE(bp, size);
+		insert(bp);
+		//PUT(HDRP(bp), PACK(size, 0));
+		//PUT(FTRP(bp), PACK(size, 0));
 	}
 
 	else if (!prev_alloc && next_alloc) { //CASE 3
-		size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+		/*size += GET_SIZE(HDRP(PREV_BLKP(bp)));
 		PUT(FTRP(bp), PACK(size, 0));
 		PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
-		bp = PREV_BLKP(bp);
+		bp = PREV_BLKP(bp);*/
+		size += GET_SIZE_T(last) + 4;
+		delete(last);
+		delete(bp);
+		bp = last;
+		SET_SIZE(bp, size);
+		insert(bp);
 	}
 
 	else { //CASE 4
-		size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
+		/*size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
 		PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
 		PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
-		bp = PREV_BLKP(bp);
+		bp = PREV_BLKP(bp);*/
+		size += GET_SIZE_T(next) + GET_SIZE_T(last) + 8;
+		delete(last);
+		delete(bp);
+		delete(next);
+		bp = last;
+		SET_SIZE(bp, size);
+		insert(bp);
 	}
 	return bp;
 }
 
-static void *find_fit(size_t asize) {
-	char *current = heap_listp;
-	for( ;GET_SIZE(HDRP(current)) > 0; current = NEXT_BLKP(current)) {
-		if(!GET_ALLOC(HDRP(current)) && (asize <= GET_SIZE(HDRP(current)))) {
-			return (void *)current;
-		}
-	}
-
-	return NULL;
+void split(char* node, size_t size)
+{	int size_b = GET_SIZE(node) - size - 4;
+	SET_SIZE(node, size);
+	int* next_node = GET_NEXT(node);
+	SET_SIZE(next_node, size_b);
+	insert(next_node);
+	return;
 }
-
-static void place (void *bp, size_t asize) {
-	size_t csize = GET_SIZE(HDRP(bp));
-
-	if ((csize - asize) >= (2*DSIZE)) {
-		PUT(HDRP(bp), PACK(asize, 1));
-		PUT(FTRP(bp), PACK(asize, 1));
-		bp = NEXT_BLKP(bp);
-		PUT(HDRP(bp), PACK(csize-asize, 0));
-		PUT(FTRP(bp), PACK(csize-asize, 0));
-	}
-	else {
-		PUT(HDRP(bp), PACK(csize, 1));
-		PUT(FTRP(bp), PACK(csize, 1));
-	}
-} 
 
 int * get_last(int * bp) {
 
@@ -360,6 +369,10 @@ int * get_last(int * bp) {
 
 void printVerbose(int exp, int result) {
   	printf("expected: \t%d\ngot:\t\t%d\n", exp, result);
+}
+
+void printVerbosep(int* exp, int result) {
+  	printf("expected: \t%p\ngot:\t\t%d\n", exp, result);
 }
  
 void unit(int verbose) {
@@ -756,7 +769,7 @@ void unit(int verbose) {
 	if (!result) {
           printf("Test %d failed for method %s\n", test, method);
 	  allPassed = 0;
-	  if(verbose) printVerbose(rootr, bp[4]);
+	  if(verbose) printVerbosep(rootr, bp[4]);
         }
         test++;
 
@@ -768,19 +781,19 @@ void unit(int verbose) {
         }
         test++;
 
-        result = bp[17] == rootr;
+        result = (bp[17] == (int)rootr);
         if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(rootr, bp[17]);
+          if(verbose) printVerbosep(rootr, bp[17]);
         }
         test++;
 
-        result = bp[22] == left;
+        result = (bp[22] == (int)left);
         if (!result) {
           printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(left, bp[22]);
+          if(verbose) printVerbosep(left, bp[22]);
         }
         test++;
 
@@ -828,7 +841,7 @@ void unit(int verbose) {
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(left, result);
+          if(verbose) printVerbosep(left, result);
         }
         test++;
 
@@ -836,7 +849,7 @@ void unit(int verbose) {
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(right, GET_NEXT(rootr));
+          if(verbose) printVerbosep(right, (unsigned int)GET_NEXT(rootr));
         }
         test++;
 
@@ -844,12 +857,9 @@ void unit(int verbose) {
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(leaf, GET_NEXT(right));
+          if(verbose) printVerbosep(leaf, (unsigned int)GET_NEXT(right));
         }
         test++;
-
-
-
 
         strcpy(method, "GET_LAST()");
 
@@ -858,7 +868,7 @@ void unit(int verbose) {
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(left, r);
+          if(verbose) printVerbosep(left, (unsigned int)r);
         }
         test++;
 
@@ -866,7 +876,7 @@ void unit(int verbose) {
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(rootr, GET_NEXT(right));
+          if(verbose) printVerbosep(rootr, (unsigned int)GET_NEXT(right));
         }
         test++;
 
@@ -874,34 +884,9 @@ void unit(int verbose) {
 	if (!result) {
 	  printf("Test %d failed for method %s\n", test, method);
           allPassed = 0;
-          if(verbose) printVerbose(leaf, GET_NEXT(right));
+          if(verbose) printVerbosep(leaf, (unsigned int)GET_NEXT(right));
         }
         test++;
-
-
-
-/* Node macros
-#define MC(p)			((char*) (p))
-#define SET_LEFT(p, addr)	PUT(MC(p)-(3*WSIZE), addr)
-#define SET_RIGHT(p, addr)	PUT(MC(p)-(2*WSIZE), addr)
-#define SET_SIZE(p, size) 	PUT(MC(p)-WSIZE, PACK_T(size, GET_ALLOC_T(p), GET_RB(p)))
-#define SET_PARENT(p, addr)	PUT(MC(p)+GET_SIZE_T(p), addr)
-#define SET_ALLOC(p, alloc)	PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), alloc, GET_RB(p) ) )
-#define SET_RB(p, rb)           PUT( MC(p)-WSIZE, PACK_T( GET_SIZE_T(p), GET_ALLOC(p), rb ) )
-#define PACK_T(size, alloc, RB) ((size) | (!!((unsigned int) alloc)) | ((!!((unsigned int) RB))<<1))
-
-#define GET_LEFT(p)		GET(MC(p)-3*(WSIZE))
-#define GET_RIGHT(p)		GET(MC(p)-2*(WSIZE))
-#define GET_ALLOC_T(p)		(GET(MC(p)-1*(WSIZE)) & 0x1)
-#define GET_SIZE_T(p)		(GET(MC(p)-1*(WSIZE)) & ~0x3)
-#define GET_RB(p)		(GET(MC(p)-1*(WSIZE)) & 0x2)
-#define GET_PARENT(p)		GET(MC(p)+GET_SIZE_T(p))
-#define GET_LAST(p)		((GET_LEFT( GET(MC(root)-4*WSIZE)) == p ) ? (GET_LEFT(GET(MC(root)-4*WSIZE))) : (GET_RIGHT(GET(MC(root)-4*WSIZE))))
-#define GET_NEXT(p)		((MC(p)+4*WSIZE+GET_SIZE_T(p)))
-*/
-
-
-
 
 
 	if(allPassed) {
@@ -941,6 +926,7 @@ int insert(int * node) { //assumes header/footer is already created
   SET_SIZE(node, size);
   SET_RB(node, RED);
   SET_ALLOC(node, 0);
+  SET_PARENT(node, NULL);
 
   if(num_nodes == 0) {
     num_nodes++;
@@ -1065,19 +1051,17 @@ int* rem_delete(int size) {
 }
 
 int* delete(int *node) {
-	num_nodes--;
-	int* s = get_sibling(node);
-	int* sorp = getSucPre(node);
+	if(node == NULL) return NULL;
+	if(node == dumby) return NULL;
 
+	num_nodes--;
+	int* sorp = getSucPre(node);
 
 	if(sorp != NULL) {
 		swap_nodes(node, sorp);
 	}
-	
-
 
 	delete_sub(node);
-
 
 	return node;
 }
@@ -1263,6 +1247,7 @@ int * createNode(int * base, int size) {
   SET_ALLOC(base, 0);
   SET_RB(base, BLACK);
   SET_PARENT(base, NULL);
+return base;
 }
 
 int* getSucPre(int* node) {
