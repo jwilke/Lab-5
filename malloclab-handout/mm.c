@@ -183,7 +183,7 @@ int mm_init(void)
 	SET_LEFT(dumby, NULL);
 	SET_RIGHT(dumby, NULL);
 	SET_PARENT(dumby, NULL);
-	heap_size += 8;
+	heap_size += 9;
 	//print_node(dumby);
 	printTree();
 	
@@ -219,7 +219,7 @@ void *mm_malloc(size_t size)
 	printf("\n***mm_malloc size: %d***\n", asize);
 	// Search the free list for a fit
 	if ((bp = (char*)rem_delete(asize)) != NULL) {//if ((bp = find_fit(asize)) != NULL) {
-		if (GET_SIZE_T(bp) > asize) 
+		if (GET_SIZE_T(bp) > asize + 16) 
 			split(bp, asize);		
 		SET_ALLOC(bp, 1);
 		printTree();
@@ -301,7 +301,7 @@ static void *extend_heap(size_t words) {
 	if((long)(bp = mem_sbrk(size)) == -1)
 		return NULL;
 		
-	heap_size += (size);
+	heap_size += (size/WSIZE);
 
 
 	printf("extend - bp: %p\n", bp);
@@ -407,12 +407,19 @@ void split(char* node, size_t size)
 {
 	printf("split node size: %d size: %d\n", GET_SIZE_T(node), size);
 	int size_b = GET_SIZE_T(node) - size - 4*WSIZE;
+
 	SET_SIZE(node, size);
-	int* next_node = GET_NEXT(node);
-	SET_SIZE(next_node, size_b);
 	SET_LEFT(node, NULL);
 	SET_RIGHT(node, NULL);
 	SET_PARENT(node, NULL);
+
+	int* next_node = GET_NEXT(node);
+	SET_SIZE(next_node, size_b);
+	SET_LEFT(next_node, NULL);
+	SET_RIGHT(next_node, NULL);
+	SET_PARENT(next_node, NULL);
+	SET_ALLOC(next_node, 0);
+
 	insert(next_node);
 	printTree();
 	return;
@@ -477,6 +484,8 @@ int* find(int nsize) {
 }
 
 int insert(int * node) { //assumes header/footer is already created
+  printf("Size: %d\n", GET_SIZE_T(node) > 0);
+  assert(GET_SIZE_T(node) > 0);
   int size = GET_SIZE_T(node);
 
   SET_LEFT(node, NULL);
@@ -816,7 +825,7 @@ int * createNode(int * base, int size) {
   SET_PARENT(base, NULL);
 return base;
 }
-
+/*
 int* getSucPre(int* node) {
   int* temp;
 
@@ -834,7 +843,7 @@ int* getSucPre(int* node) {
     return NULL;
   }
 } 
-
+*/
 int* get_sibling(int* node) {
   int* parent = GET_PARENT(node);
   if(parent == NULL) return NULL;
@@ -901,6 +910,22 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 
 	if(root == a) root = b;
 	else if(root == b) root = a;
+}
+
+int* getSucPre(int* node) {
+	int * l = GET_LEFT(node);
+	int * r = GET_RIGHT(node);
+	int * temp = NULL;
+	if (l != NULL) {
+		temp = l;
+		while(GET_RIGHT(temp) != NULL)
+			temp = GET_RIGHT(temp);
+	} else if (r != NULL) {
+		temp = r;
+		while(GET_LEFT(temp) != NULL)
+			temp = GET_LEFT(temp);
+	}
+	return temp;
 }
 
 int* replace_node_one_child(int* node) {
