@@ -1,7 +1,7 @@
-struct lnode {
+/*struct lnode {
 	int *data;
 	struct lnode * next;
-};
+	};*/
 /*
  * mm-naive.c - The fastest, least memory-efficient malloc package.
  * 
@@ -86,8 +86,8 @@ team_t team = {
 #define BLACK 0
 #define RED   1
 
-void printTree();
-void print_tree_level(struct lnode* olist);
+//void printTree();
+//void print_tree_level(struct lnode* olist);
 void print_node(int * node);
 void print_order();
 
@@ -110,6 +110,17 @@ static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 int * get_last(int * bp);
 void split(char* node, size_t size);
+
+//tester functions
+int mm_check(void);
+int allFreeBlocks(int* current);
+int checkCoalescing(int* current);
+int freeInTree(int* current);
+int validHeapAddr(int* current);
+int testRoot(int* r);
+int testOrdering(int* r);
+int testRedNodes(int* r);
+int testBlackPaths(int* r);
 
 //insert functions
 int* find(int nsize); // find the parent that leaf of size nsize would have
@@ -896,7 +907,7 @@ int* replace_node_one_child(int* node) {
 
 
 
-
+/*
 void printTree() {
 	printf("**********************\nroot\n");
   struct lnode* printTree = malloc(sizeof(struct lnode));
@@ -946,6 +957,10 @@ void print_tree_level(struct lnode* olist) {
   printf("\n");
   print_tree_level(cur);
 }
+*/
+
+
+
 
 void print_node(int * node) {
 	if (node == NULL) return;
@@ -959,7 +974,128 @@ void print_node(int * node) {
   return;
 }
 
-//int node_integ(
+int mm_check(void) {
+  int allPassed = 0;
+  allPassed = allPassed || allFreeBlocks(root);
+  allPassed = allPassed || checkCoalescing(dumby);
+  allPassed = allPassed || freeInTree(root);
+  allPassed = allPassed || validHeapAddr(root);
+  // check red black
+  if(testRoot(root) == 0) allPassed = 1;
+  if(testOrdering(root) == 0) allPassed = 1;
+  if(testRedNodes(root) == 0) allPassed = 1;
+  if(testBlackPaths(root) == -1) allPassed = 1;
+
+  return allPassed;
+}
+
+// is every block in the tree free
+int allFreeBlocks(int* current) {
+  if (current == NULL) return 0; 
+  else if (GET_ALLOC_T(current) == 1) return 1;
+  else{
+    int out = 0;
+    out = out | allFreeBlocks(GET_LEFT(current));
+    out = out | allFreeBlocks(GET_RIGHT(current));
+    return out;
+  }
+}
+
+// make sure there is no adjacent free blocks
+int checkCoalescing(int* current) {
+  if(current >= (dumby - 8) + heap_size) {
+    return 0;
+  }
+  if(GET_NEXT(current) >= (dumby - 8) + heap_size) {
+    return 0;
+  } else {
+    if(GET_ALLOC_T(current) == 1) 
+      return checkCoalescing(GET_NEXT(current));
+    int out = 0;
+    if(GET_ALLOC_T(GET_NEXT(current)) == 0) out = 1;
+    if(out == 0) out = checkCoalescing(GET_NEXT(current));
+    
+    return out;
+  }
+}
+
+// make sure all free nodes are in tree
+int freeInTree(int* current) {
+  if(current >=(dumby - 8) + heap_size) {
+    return 0;
+  }
+  
+  if(GET_NEXT(current) >= (dumby - 8) + heap_size) {
+    return 0;
+  }
+
+  if(GET_ALLOC_T(current) == 1) return freeInTree(GET_NEXT(current));
+
+  int out = 1;
+  int* p = GET_PARENT(current);
+  if(GET_LEFT(p) == current) out = 0;
+  if(GET_RIGHT(p) == current) out = 0;
+  return out;
+}
+
+
+// make sure all addresses are in heap
+int validHeapAddr(int* current){
+  if(current == NULL) return 0;
+  int out = 1;
+  if(current <= (dumby - 8) + heap_size  && current > dumby) out = 0;
+  if (out == 0) out = validHeapAddr(GET_LEFT(current));
+  if (out == 0) out = validHeapAddr(GET_RIGHT(current));
+  return out;
+}
+
+// make sure hte root is black
+int testRoot(int* r) {
+  if (r == NULL) return 1;
+  else return (GET_RB(r) == BLACK);
+}
+
+// make sure the tree is in order
+int testOrdering(int* r) {
+  if (r == NULL) return 1;
+  int out = 1;
+  if (GET_LEFT(r) != NULL) out = out && GET_SIZE_T(r) >= GET_SIZE_T(GET_LEFT(r));
+  if (GET_RIGHT(r) != NULL) out = out && GET_SIZE_T(r) <= GET_SIZE_T(GET_RIGHT(r));
+  out = out && testOrdering(GET_LEFT(r));
+  out = out && testOrdering(GET_RIGHT(r));
+  return out;
+}
+
+// make sure that there are no red nodes with red children
+int testRedNodes(int* r) {
+  if (r == NULL) return 1;
+  int out = 1;
+  if (GET_RB(r) == RED) {
+    if(GET_LEFT(r) != NULL)
+      out = out && GET_RB( GET_LEFT(r) ) == BLACK;
+    if(GET_RIGHT(r) != NULL)
+      out = out && GET_RB( GET_RIGHT(r) ) == BLACK;
+  }
+  return 0;
+}
+
+// amek sure all paths have the same number of blacks
+int testBlackPaths(int* r) {
+  if (r == NULL) return 0;
+  int l;
+  int rgt;
+  l = testBlackPaths(GET_LEFT(r));
+  rgt = testBlackPaths(GET_RIGHT(r));
+  if (l == -1 || rgt == -1) return -1;
+  if (l == rgt) {
+    if (GET_RB(r) == BLACK)
+      return l+1;
+    else
+      return l;
+  }
+  return -1;
+}
+
 
 
 
@@ -1559,7 +1695,7 @@ void unit(int verbose) {
 void print_order() {
 	printf("***********************\n");
 	int* temp = dumby;
-	while(temp < mem_heap_hi()) {
+	while(temp < (int*) mem_heap_hi()) {
 		printf("%p:%d:%d\n", temp, GET_ALLOC_T(temp), GET_SIZE_T(temp));
 		temp = GET_NEXT(temp);
 	}
