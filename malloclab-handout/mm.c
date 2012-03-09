@@ -44,24 +44,9 @@ team_t team = {
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
-// Pack a size and allocated bit into a word
-#define PACK(size, alloc) ((size) | (alloc))
-
 // Read and write a word at address p
 #define GET(p)	(*((unsigned int *) (p)))
 #define PUT(p, val) (*((unsigned int *) (p)) = ((unsigned int) val))
-
-//Read the size and allocated fields from address p
-#define GET_SIZE(p) 	(GET(p) & ~0x7)
-#define GET_ALLOC(p) 	(GET(p) & 0x1)
-
-// Given block ptr bp, compute address of its header and footer
-#define HDRP(bp) 	((char *)(bp) - WSIZE)
-#define FTRP(bp) 	((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
-
-//Give block ptr bp, compute address of next and previous blocks
-#define NEXT_BLKP(bp) 	((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
-#define PREV_BLKP(bp)	((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 
 /* single word (4) or double word (8) alignment */
@@ -164,22 +149,20 @@ int mm_init(void)
 
 	root = NULL;
 
-		if ((dumby = mem_sbrk(9*WSIZE)) == (void *)-1) return -1;
+	if ((dumby = mem_sbrk(9*WSIZE)) == (void *)-1) return -1;
 
-		dumby += 8;
-		SET_SIZE(dumby, 0);
-		SET_RB(dumby, BLACK);
-		SET_ALLOC(dumby, 1);
-		SET_LEFT(dumby, NULL);
-		SET_RIGHT(dumby, NULL);
-		SET_PARENT(dumby, NULL);
-		heap_size = 9;
-		num_nodes = 0;
+	dumby += 8;
+	SET_SIZE(dumby, 0);
+	SET_RB(dumby, BLACK);
+	SET_ALLOC(dumby, 1);
+	SET_LEFT(dumby, NULL);
+	SET_RIGHT(dumby, NULL);
+	SET_PARENT(dumby, NULL);
+	heap_size = 9;
+	num_nodes = 0;
 
-		if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
-			return -1;
-	
-	
+	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
+		return -1;
 
 	return 1;
 }
@@ -194,7 +177,7 @@ void *mm_malloc(size_t size)
 {
 	
 	size_t asize; 		// Adjusted block size
-	size_t extendsize; 	// Amount to extend heap if no fit
+	//size_t extendsize; 	// Amount to extend heap if no fit
 	char *bp;
 
 	// Ignore spurious requests
@@ -202,34 +185,28 @@ void *mm_malloc(size_t size)
 		return NULL;
 	
 	// Adjust block size to include overhead and alignment reqs
-	if (size <= DSIZE)
-		asize = DSIZE;
-	else
-		asize = ALIGN(size);
-
-	assert(asize%8 == 0);	
-
+	asize = ALIGN(size); // always works.  no need for an if statement
 	// Search the free list for a fit
 	if ((bp = (char*)rem_delete(asize)) != NULL) {
 		SET_ALLOC(bp, 1);
+
 		if (GET_SIZE_T(bp) > asize + 16) 
-			split(bp, asize);		
-		SET_ALLOC(bp, 1);
-		//printTree();
-		////print_node(bp);
+			split(bp, asize);
+
 		return bp;
 	}
 
 	// No fit found. Get more memory and place the block
-	extendsize = MAX(asize+16, CHUNKSIZE);
-	if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
+	if ((bp = extend_heap(MAX(asize+16, CHUNKSIZE)/WSIZE)) == NULL)
 		return NULL;
+
 	delete((int*) bp);
 	SET_ALLOC(bp, 1);
+
 	if(GET_SIZE_T(bp) > asize+16) {
 		split(bp, asize);
 	}
-	SET_ALLOC(bp, 1);
+
 	return bp;
 }
 
@@ -239,14 +216,19 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
-	SET_LEFT(ptr, NULL);
-	SET_RIGHT(ptr, NULL);
-	SET_PARENT(ptr, NULL);
 	SET_ALLOC(ptr, 0);
 	insert(ptr);
-	assert(GET_ALLOC_T(ptr) == 0);
 	coalesce(ptr);
 }
+
+void adjust_node(int* node, int dec_size) {
+  int size = GET_SIZE_T(node) - dec_size;
+  delete(node);
+  node += (dec_size/WSIZE);
+  SET_SIZE(node, size);
+  insert(node);
+}
+
 
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
@@ -255,24 +237,51 @@ void *mm_realloc(void *ptr, size_t size)
 {
 	void *oldptr = ptr;
 	void *newptr;
-	size_t copySize;
-	copySize = GET_SIZE_T(oldptr);
-	if(size == copySize) return ptr;
+	size_t oldSize;
 
-	newptr = mm_malloc(size);
-	if(oldptr == NULL)
-		return newptr;
 	if(size == 0) {
 		mm_free(oldptr);
 		return NULL;
 	}
+	if(ptr == NULL) {
+	  ptr = mm_malloc(size);
+	  return ptr;
+	}
+
+
+	oldSize = GET_SIZE_T(oldptr);
+	if(size == oldSize) return ptr;
+
+	if(size > oldSize) {
+	        int* next = GET_NEXT(ptr);
+		int asize = ALIGN(size);
+      	        if((next < (dumby - 8) + heap_size) && GET_ALLOC_T(next) == 0 && oldSize + GET_SIZE_T(next) - 16 > asize) {
+		        //then next node can be adjusted
+	                //printf("current size: %d/t size needed: %d/t next size: %d\n", copySize, size, GET_SIZE_T(next));
+		  adjust_node(next, (asize - oldSize));
+		  SET_SIZE(ptr, asize);
+		  SET_PARENT(ptr, NULL);
+		  return ptr;
+	        }
+        } /*else {
+	  //We are shrinking the node
+	  int asize = ALIGN(size);
+	  if(oldSize - asize >= 8 + 16) {
+	    split(ptr, asize);
+	    return ptr;
+	  }
+	  }*/
+
+	//Last resort, malloc new memory and copy old data to new pointer
+	newptr = mm_malloc(size);
 
 	if (newptr == NULL)
 		return NULL;
 
-	if (size < copySize)
-	copySize = size;
-	memcpy(newptr, oldptr, copySize);
+	if (size < oldSize) {
+	        oldSize = size;
+        }
+	memcpy(newptr, oldptr, oldSize);
 	mm_free(oldptr);
 	return newptr;
 }
@@ -288,31 +297,27 @@ static void *extend_heap(size_t words) {
 		
 	heap_size += (size/WSIZE);
 
-	bp += 3*WSIZE;// + heap_size;
+	bp += 3*WSIZE;
 
 	//Init free block header/footer and the epilogue header
-	SET_SIZE(bp, size-(4*WSIZE));		//Set size of base node
-
-	SET_LEFT(bp, NULL);
-	SET_RIGHT(bp, NULL);
-	SET_PARENT(bp, NULL);
+	SET_SIZE(bp, size-(4*WSIZE));
 	SET_ALLOC(bp, 0);
 
 	insert((int*)bp);
-	//printTree();
+
 	return coalesce(bp);
 }
 
 
 static void *coalesce(void * bp) {
-	size_t prev_alloc = GET_ALLOC_T(GET_LAST(bp)); 	//GET_ALLOC(FTRP(PREV_BLKP(bp)));
-	size_t next_alloc = GET_ALLOC_T(GET_NEXT(bp));	//GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-	size_t size = GET_SIZE_T(bp);			//GET_SIZE(HDRP(bp));
+	size_t prev_alloc = GET_ALLOC_T(GET_LAST(bp));
+	size_t next_alloc = GET_ALLOC_T(GET_NEXT(bp));
+	size_t size = GET_SIZE_T(bp);
 	int* next = GET_NEXT(bp);
 	int* last = GET_LAST(bp);
 
-	if((unsigned int)next >= ((unsigned int)(dumby - 8)) + heap_size) next_alloc = 1;
-	if((unsigned int)last < ((unsigned int) (dumby + 1))) prev_alloc = 1;
+	if(next >= (dumby - 8) + heap_size) next_alloc = 1;
+	if(last < (dumby + 1)) prev_alloc = 1;
 
 
 	if (prev_alloc && next_alloc) { //CASE 1
@@ -322,16 +327,18 @@ static void *coalesce(void * bp) {
 	
 
 	else if (prev_alloc && !next_alloc) { //CASE 2
-		size += GET_SIZE_T(next) + 16;	//GET_SIZE(HDRP(NEXT_BLKP(bp)));
+		size += GET_SIZE_T(next) + 16;
 		delete(bp);
 		delete(next);
 		SET_SIZE(bp, size);
-		SET_LEFT(bp, NULL);
-		SET_RIGHT(bp, NULL);
-		SET_PARENT(bp, NULL);
+		while( ((next = GET_NEXT(bp)) < (dumby - 8) + heap_size) && GET_ALLOC_T(next) == 0) {
+		    size += GET_SIZE_T(next) + 16;
+		    delete(next);
+		    SET_SIZE(bp,size);
+		}
+
 		insert(bp);
-		//PUT(HDRP(bp), PACK(size, 0));
-		//PUT(FTRP(bp), PACK(size, 0));
+		return bp;
 	}
 
 	else if (!prev_alloc && next_alloc) { //CASE 3
@@ -340,10 +347,14 @@ static void *coalesce(void * bp) {
 		delete(bp);
 		bp = last;
 		SET_SIZE(bp, size);
-		SET_LEFT(bp, NULL);
-		SET_RIGHT(bp, NULL);
-		SET_PARENT(bp, NULL);
+		while( ((last = GET_LAST(bp)) > (dumby+1)) && GET_ALLOC_T(last) == 0) {
+		  size += GET_SIZE_T(last) + 16;
+		  delete(last);
+		  bp = last;
+		  SET_SIZE(bp, size);
+		}
 		insert(bp);
+		return bp;
 	}
 
 	else { //CASE 4
@@ -354,9 +365,6 @@ static void *coalesce(void * bp) {
 		delete(next);
 		bp = last;
 		SET_SIZE(bp, size);
-		SET_LEFT(bp, NULL);
-		SET_RIGHT(bp, NULL);
-		SET_PARENT(bp, NULL);
 		insert(bp);
 	}
 
@@ -368,16 +376,11 @@ void split(char* node, size_t size)
 	int size_b = GET_SIZE_T(node) - size - 4*WSIZE;
 
 	SET_SIZE(node, size);
-	SET_LEFT(node, NULL);
-	SET_RIGHT(node, NULL);
 	SET_PARENT(node, NULL);
 	SET_ALLOC(node, 1);
 
 	int* next_node = GET_NEXT(node);
 	SET_SIZE(next_node, size_b);
-	SET_LEFT(next_node, NULL);
-	SET_RIGHT(next_node, NULL);
-	SET_PARENT(next_node, NULL);
 	SET_ALLOC(next_node, 0);
 
 	insert(next_node);
@@ -421,7 +424,7 @@ int * get_last(int * bp) {
 int* find(int nsize) {
   unsigned int ns = (unsigned int) nsize;
   int* current = root;
-  assert (root != NULL);
+  //assert (root != NULL);
   while(1) {
     if(ns <= GET_SIZE_T(current)) { //try to go left
       if(GET_LEFT(current) == NULL) { // if there's no node to the left, it's the parent
@@ -443,7 +446,7 @@ int* find(int nsize) {
 }
 
 int insert(int * node) { //assumes header/footer is already created
-  assert(GET_SIZE_T(node) > 0);
+  //assert(GET_SIZE_T(node) > 0);
   int size = GET_SIZE_T(node);
 
   SET_LEFT(node, NULL);
@@ -472,32 +475,32 @@ int insert(int * node) { //assumes header/footer is already created
   }
 
   icase1(node);
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
   return 0;
 }
 
 void icase1(int * node) {
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
   if(GET_PARENT(node) == NULL) {
     SET_RB(node, BLACK);
   } else {
     icase2(node);
   }
   SET_RB(root, BLACK);
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
 }
 
 void icase2(int * node) {
-assert(GET_ALLOC_T(node) == 0);;
+  //assert(GET_ALLOC_T(node) == 0);;
   int* parent = GET_PARENT(node);
   if(GET_RB(parent) == BLACK)
     return;
   else icase3(node);
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
 }
 
 void icase3(int * node) {
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
   int* parent = GET_PARENT(node);
   int* u = get_sibling(parent); //uncle
 
@@ -509,11 +512,11 @@ assert(GET_ALLOC_T(node) == 0);
   } else {
     icase4(node);
   }
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
 }
 
 void icase4(int * node) {
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
   int* p = GET_PARENT(node);
   int* gp = GET_PARENT(p);
 
@@ -525,11 +528,11 @@ assert(GET_ALLOC_T(node) == 0);
     node = GET_RIGHT(node);
   }
   icase5(node);
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
 }
 
 void icase5(int * node) {
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
   int* p = GET_PARENT(node);
   if(p == NULL) return;
   int* gp = GET_PARENT(p);
@@ -538,7 +541,7 @@ assert(GET_ALLOC_T(node) == 0);
   SET_RB(gp, RED);
   if( node == GET_LEFT(p) ) rotate_clock(gp);
   else rotate_counter_clock(gp);
-assert(GET_ALLOC_T(node) == 0);
+  //assert(GET_ALLOC_T(node) == 0);
 }
 
 int* rem_find(int nsize) {
@@ -605,7 +608,7 @@ int* delete(int *node) {
 	}
 
 	delete_sub(node);
-	SET_ALLOC(node, 1);
+	//SET_ALLOC(node, 1);
 	return node;
 }
 
