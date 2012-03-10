@@ -79,28 +79,15 @@ team_t team = {
 #define BLACK 0
 #define RED   1
 
-//void printTree();
-//void print_tree_level(struct lnode* olist);
 void print_node(int * node);
 void print_order();
 
 
 //private global pointers
-//void *heap_listp;
 static void *root = NULL;  //base node of RBTree
-//static int num_nodes = 0;
 static int * dumby = NULL;  //first node of the heap. used for removal in rbtree
-static int heap_size = 0;
-/*
-// for testing
-int initi = 0;
-int malloci = 0;
-int freei = 0;
-int realloci = 0;
-int extendi = 0;
-int coalescei = 0;
-int spliti = 0;
-*/
+static int heap_size = 0;   //used for an upper bounds check in coalesce etc.
+
 //the project functions
 int mm_init(void);
 void *mm_malloc(size_t size);
@@ -112,6 +99,7 @@ static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 int * get_last(int * bp);
 void split(char* node, size_t size);
+void adjust_node(int* node, int dec_size);
 
 //tester functions
 int mm_check(void);
@@ -159,12 +147,13 @@ int* replace_node_one_child(int* node);
  */
 int mm_init(void)
 {
-  //initi++;
-  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
 	root = NULL;
 
 	if ((dumby = mem_sbrk(9*WSIZE)) == (void *)-1) return -1;
 
+	//dumby is a dummy node used for certain deletion cases in our rbtree.
+	//it's kept at the base and is used for the lower bound checks in
+	//coalesce etc.
 	dumby += 8;
 	SET_SIZE(dumby, 0);
 	SET_RB(dumby, BLACK);
@@ -173,7 +162,6 @@ int mm_init(void)
 	SET_RIGHT(dumby, NULL);
 	SET_PARENT(dumby, NULL);
 	heap_size = 9;
-	//num_nodes = 0;
 
 	if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
 		return -1;
@@ -187,25 +175,23 @@ int mm_init(void)
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  */
-void *mm_malloc(size_t size)
+void *mm_malloc(size_t size) 
 {
-  //malloci++;
-  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
 	size_t asize; 		// Adjusted block size
-	//size_t extendsize; 	// Amount to extend heap if no fit
 	char *bp;
 
 	// Ignore spurious requests
 	if (size == 0)
 		return NULL;
 	
-	// Adjust block size to include overhead and alignment reqs
-	asize = ALIGN(size); // always works.  no need for an if statement
-	// Search the free list for a fit
+	// Adjust block size to meet alignment reqs
+	asize = ALIGN(size);
+
+	// Search the RBTREE free list for a fit
 	if ((bp = (char*)rem_delete(asize)) != NULL) {
 		SET_ALLOC(bp, 1);
 
-		if (GET_SIZE_T(bp) > asize + 16) 
+		if (GET_SIZE_T(bp) > asize + 16) //if we got too much space, split into two nodes
 			split(bp, asize);
 
 		return bp;
@@ -218,7 +204,7 @@ void *mm_malloc(size_t size)
 	delete((int*) bp);
 	SET_ALLOC(bp, 1);
 
-	if(GET_SIZE_T(bp) > asize+16) {
+	if(GET_SIZE_T(bp) > asize+16) { // if  we got too much space split it
 		split(bp, asize);
 	}
 
@@ -227,17 +213,17 @@ void *mm_malloc(size_t size)
 
 
 /*
- * mm_free - Freeing a block does nothing.
+ * mm_free - Freeing a block inserts the node back into the RBTREE
  */
 void mm_free(void *ptr)
 {
-  //freei++;
-  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
 	SET_ALLOC(ptr, 0);
 	insert(ptr);
 	coalesce(ptr);
 }
 
+
+//used in a certain corner case of realloc
 void adjust_node(int* node, int dec_size) {
   int size = GET_SIZE_T(node) - dec_size;
   delete(node);
@@ -249,13 +235,12 @@ void adjust_node(int* node, int dec_size) {
 
 
 /*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+ * mm_realloc - For expanding, tries to obtain space from neighboring free nodes.
+ * For shrinking, tries to split into two nodes.
+ * Failure of either mallocs new space and free's old space
  */
 void *mm_realloc(void *ptr, size_t size)
 {
-  //realloci++;
-  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
-
 	void *oldptr = ptr;
 	void *newptr;
 	size_t oldSize;
@@ -299,27 +284,14 @@ void *mm_realloc(void *ptr, size_t size)
 		  insert(temp);
 		  return prev;
 		}
-        } 
-
-	else {
+        } else {
 	  //We are shrinking the node
 	  if( oldSize - asize >= 16) {
-	    //printf("Got Here\n");
 	    split(ptr, asize);
 	    coalesce(GET_NEXT(ptr));
-	    //int* next = GET_NEXT(ptr);
-	    /*if((next < (dumby - 8) + heap_size) && GET_ALLOC_T(next) == 0) {
-	      //then we can reduce current nodes space and add it to the next nodes size
-	      int nsize = GET_SIZE_T(next) + (oldSize - asize);
-	      SET_SIZE(ptr, asize);
-	      SET_PARENT(ptr, NULL);
-	      delete(next);
-	      next = GET_NEXT(ptr);
-	      SET_SIZE(next, nsize);
-	      insert(next);
-	      return ptr;*/
 	  } else {
 	    if (GET_ALLOC_T(GET_NEXT(ptr)) == 0) {
+	      //add the extra space to the next node and readd to the tree
 	      int* next = GET_NEXT(ptr);
 	      delete(next);
 	      int n_size = GET_SIZE_T(next);
@@ -347,10 +319,9 @@ void *mm_realloc(void *ptr, size_t size)
 	return newptr;
 }
 
+// extend_heap is used whenever we need more heap space.
+// after allocation, inserts the free space to the tree
 static void *extend_heap(size_t words) {
-  //extendi++;
-  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
-
 	char *bp;
 	size_t size;
 
@@ -374,12 +345,8 @@ static void *extend_heap(size_t words) {
 
 
 static void *coalesce(void * bp) {
-  //coalescei++;
-  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
-
-  //if(!mm_check()) {printf("mm_check fail\n"); assert(0);}
-  int* next = GET_NEXT(bp);
-  int* last = GET_LAST(bp);
+        int* next = GET_NEXT(bp);
+        int* last = GET_LAST(bp);
 	size_t prev_alloc = GET_ALLOC_T(last);
 	size_t next_alloc = GET_ALLOC_T(next);
 	size_t size = GET_SIZE_T(bp);
@@ -437,6 +404,7 @@ static void *coalesce(void * bp) {
 	return coalesce(bp);
 }
 
+//split takes a node and reduces it to size, and then inserts the remaining space to the tree
 void split(char* node, size_t size)
 {
   //spliti++;
@@ -456,6 +424,7 @@ void split(char* node, size_t size)
 	return;
 }
 
+// get_last(bp) returns the node located before bp
 int * get_last(int * bp) {
 
 	int* addr = (int*) (MC(bp)-4*WSIZE);
@@ -489,7 +458,7 @@ int * get_last(int * bp) {
 }
 
 
-
+//used for insert.  find(size) finds the leaf where a node of (nsize) would be put
 int* find(int nsize) {
   unsigned int ns = (unsigned int) nsize;
   int* current = root;
@@ -514,7 +483,10 @@ int* find(int nsize) {
   return current;
 }
 
-int insert(int * node) { //assumes header/footer is already created
+//inserts a node into the tree
+//assumes size is already set.
+//doesn't touch allocation bit
+int insert(int * node) {
   int size = GET_SIZE_T(node);
 
   SET_LEFT(node, NULL);
@@ -525,13 +497,11 @@ int insert(int * node) { //assumes header/footer is already created
   SET_PARENT(node, NULL);
 
   if(root == NULL) {
-    //num_nodes++;
     root = node;
     SET_RB(root, BLACK);
     SET_PARENT(root, NULL);
     return 1;
   }
-  //num_nodes++;
 
   int* parent = find(size);
   if(size <= GET_SIZE_T(parent)) {
@@ -546,6 +516,7 @@ int insert(int * node) { //assumes header/footer is already created
   return 0;
 }
 
+//case 1 of RBTREE inserts
 void icase1(int * node) {
   if(GET_PARENT(node) == NULL) {
     SET_RB(node, BLACK);
@@ -555,6 +526,7 @@ void icase1(int * node) {
   SET_RB(root, BLACK);
 }
 
+//case 2 of RBTREE inserts
 void icase2(int * node) {
   int* parent = GET_PARENT(node);
   if(GET_RB(parent) == BLACK)
@@ -562,6 +534,7 @@ void icase2(int * node) {
   else icase3(node);
 }
 
+//case 3 of RBTREE inserts
 void icase3(int * node) {
   int* parent = GET_PARENT(node);
   int* u = get_sibling(parent); //uncle
@@ -576,6 +549,7 @@ void icase3(int * node) {
   }
 }
 
+//case 4 of RBTREE inserts
 void icase4(int * node) {
   int* p = GET_PARENT(node);
   int* gp = GET_PARENT(p);
@@ -590,6 +564,7 @@ void icase4(int * node) {
   icase5(node);
 }
 
+//case 5 of RBTREE inserts
 void icase5(int * node) {
   int* p = GET_PARENT(node);
   if(p == NULL) return;
@@ -601,6 +576,7 @@ void icase5(int * node) {
   else rotate_counter_clock(gp);
 }
 
+//used for rem_delete.  finds the node with size closest to nsize
 int* rem_find(int nsize) {
 	int* current = root;
 	int* closest_seen;
@@ -638,26 +614,26 @@ int* rem_find(int nsize) {
 
 	}
 	if( GET_SIZE_T(closest_seen) >= nsize ) return closest_seen;
-	//if(nsize > GET_SIZE_T(current)) return NULL;
 
 	return NULL;
 }
 
+//looks for a node of size and deletes it to the tree, and returns a pointer to it
 int* rem_delete(int size) {
 	// find node to delete
 	int * rem = rem_find(size);
 	// delete node if it existed
 	if(rem != NULL)
 		delete(rem);
-	// return node
+
 	return rem;
 }
 
+//removes node from the tree
 int* delete(int *node) {
 	if(node == NULL) return NULL;
 	if(node == dumby) return NULL;
 
-	//num_nodes--;
 	int* sorp = getSucPre(node);
 
 	if(sorp != NULL) {
@@ -668,9 +644,7 @@ int* delete(int *node) {
 	return node;
 }
 
-
-
-
+//helper function to delete, kicks off the balancing of the RBTREE
 int* delete_sub(int* n) {
 	int* copy = n;
 	int dumbyUsed= 0;
@@ -709,12 +683,14 @@ int* delete_sub(int* n) {
 	return copy;
 }
 
+//case 1 of RBTREE delete
 void dcase1(int * n) {
 	if (GET_PARENT(n) != NULL) {
 		dcase2(n);
 	}
 }
 
+//case 2 of RBTREE delete
 void dcase2(int * n) {
 	int * s = get_sibling(n);
 
@@ -730,6 +706,7 @@ void dcase2(int * n) {
 	dcase3(n);
 }
 
+//case 3 of RBTREE delete
 void dcase3(int * n) {
 	int* s = get_sibling(n);
 	int* p = GET_PARENT(n);
@@ -744,6 +721,7 @@ void dcase3(int * n) {
 
 }
 
+//case 4 of RBTREE delete
 void dcase4(int* n) {
 	int* s = get_sibling(n);
 	int* p = GET_PARENT(n);
@@ -759,6 +737,7 @@ void dcase4(int* n) {
 
 }
 
+//case 5 of RBTREE delete
 void dcase5(int* n) {
 	int* s = get_sibling(n);
 	int* p = GET_PARENT(n);
@@ -778,6 +757,7 @@ void dcase5(int* n) {
 	dcase6(n);
 }
 
+//case 6 of RBTREE delete
 void dcase6(int* n) {
 	int* s = get_sibling(n);
 	int* p = GET_PARENT(n);
@@ -795,7 +775,8 @@ void dcase6(int* n) {
 }
 
 
-
+//helper functions for insert and delete
+//performs a clockwise rotation around node
 void rotate_clock(int * node) {
 	int* p = GET_PARENT(node);
 	int* l = GET_LEFT(node);
@@ -818,6 +799,7 @@ void rotate_clock(int * node) {
 	}
 }
 
+//performs a counter clockwise rotation around node
 void rotate_counter_clock(int * node) {
 	int* p = GET_PARENT(node);
 	int* r = GET_RIGHT(node);
@@ -840,7 +822,7 @@ void rotate_counter_clock(int * node) {
 	}
 }
 
-int * createNode(int * base, int size) {
+/*int * createNode(int * base, int size) {
   SET_LEFT(base, NULL);
   SET_RIGHT(base, NULL);
   SET_SIZE(base, size);
@@ -848,9 +830,10 @@ int * createNode(int * base, int size) {
   SET_RB(base, BLACK);
   SET_PARENT(base, NULL);
 return base;
-}
+}*/
 
 
+//returns the sibling of a node if it exists
 int* get_sibling(int* node) {
   int* parent = GET_PARENT(node);
   if(parent == NULL) return NULL;
@@ -861,6 +844,7 @@ int* get_sibling(int* node) {
   return GET_LEFT(parent);
 }
 
+//swaps all pointer references of two nodes, essentially swapping the two nodes
 void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 	
 
@@ -919,6 +903,7 @@ void swap_nodes(int* a, int* b) { //assumes a is higher in the tree
 	else if(root == b) root = a;
 }
 
+//gets the inorder Successor or Predesccessor of a node
 int* getSucPre(int* node) {
 	int * l = GET_LEFT(node);
 	int * r = GET_RIGHT(node);
@@ -935,6 +920,7 @@ int* getSucPre(int* node) {
 	return temp;
 }
 
+//used on nodes with only one child.  removes node from the tree and puts its child in it's spot
 int* replace_node_one_child(int* node) {
 	if(GET_RIGHT(node) == NULL && GET_LEFT(node) == NULL) return NULL;
 	int* p = GET_PARENT(node);
@@ -949,63 +935,6 @@ int* replace_node_one_child(int* node) {
 	return GET_RIGHT(node);
 }
 
-
-
-/*
-void printTree() {
-	printf("**********************\nroot\n");
-  struct lnode* printTree = malloc(sizeof(struct lnode));
-  printTree->data = root;
-  printTree->next = NULL;
-  print_tree_level(printTree);
-	printf("***********************\n");
-}
-
-void print_tree_level(struct lnode* olist) {
-  struct lnode* nlist = malloc(sizeof(struct lnode));
-  nlist->data = NULL;
-  nlist->next = NULL;
-  struct lnode* cur = nlist;
-  if(olist->data == NULL) return;
-  struct lnode* temp;
-  char color = 'R';
-
-  while(olist != NULL) {
-    if(GET_RB(olist->data) == 0) color = 'B';
-    else color = 'R';
-
-    printf("%p:%d:%d:%c ", olist->data, GET_ALLOC_T(olist->data), GET_SIZE_T(olist->data), color);
-    if(GET_LEFT(olist->data) != NULL) {
-      temp = malloc(sizeof(struct lnode));
-      temp->data = GET_LEFT(olist->data);
-      temp->next = NULL;
-      nlist->next = temp;
-      nlist = nlist->next;
-    }
-    if(GET_RIGHT(olist->data) != NULL) {
-      temp = malloc(sizeof(struct lnode));
-      temp->data = GET_RIGHT(olist->data);
-      temp->next = NULL;
-      nlist->next = temp;
-      nlist = nlist->next;
-    }
-    struct lnode * f = olist->next;
-    free(olist);
-    olist = f;
-  }
-  if(cur->next != NULL && cur->data == NULL) {
-    struct lnode * f = cur->next;
-    free(cur);
-    cur = f;
-  }
-  printf("\n");
-  print_tree_level(cur);
-}
-*/
-
-
-
-
 void print_node(int * node) {
 	if (node == NULL) return;
   printf("CURRENT ADDRESS: %p\n", node);
@@ -1015,9 +944,14 @@ void print_node(int * node) {
   printf("ALLOC: %d\n", GET_ALLOC_T(node));
   printf("RB: %d\n", GET_RB(node));
   printf("PARENT: %p\n\n", GET_PARENT(node));
-  return;
 }
 
+//consistency checker
+//makes sure all free blocks are in the tree
+//checks for proper coalescing
+//makes sure all the blocks in the tree are free
+//makes sure all the addresses point to the right spot
+//ensures the RBTREE maintains balance
 int mm_check(void) {
   int allPassed = 0;
   allPassed = allPassed || allFreeBlocks(root);
@@ -1123,7 +1057,7 @@ int testRedNodes(int* r) {
   return 0;
 }
 
-// amek sure all paths have the same number of blacks
+// make sure all paths have the same number of blacks
 int testBlackPaths(int* r) {
   if (r == NULL) return 0;
   int l;
@@ -1143,69 +1077,7 @@ int testBlackPaths(int* r) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//the rest is unit testing for our tree.
 
 
 void printVerbose(int exp, int result) {
