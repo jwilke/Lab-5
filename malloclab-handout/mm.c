@@ -274,14 +274,27 @@ void *mm_realloc(void *ptr, size_t size)
 		  SET_PARENT(ptr, NULL);
 		  return ptr;
 	        }
-        } /*else {
+        } else {
 	  //We are shrinking the node
 	  int asize = ALIGN(size);
-	  if(oldSize - asize >= 8 + 16) {
-	    split(ptr, asize);
+	  if(oldSize - asize == 0) {
+	    //no change is needed, malloc would just return a new address with it's size after aligning anyways
 	    return ptr;
+	  } else if( oldSize - asize >= 16) {
+	    int* next = GET_NEXT(ptr);
+	    if((next < (dumby - 8) + heap_size) && GET_ALLOC_T(next == 0)) {
+	      //then we can reduce current nodes space and add it to the next nodes size
+	      int nsize = GET_SIZE_T(next) + (oldSize - asize);
+	      SET_SIZE(ptr, asize);
+	      SET_PARENT(ptr, NULL);
+	      delete(next);
+	      next = GET_NEXT(ptr);
+	      SET_SIZE(next, nsize);
+	      insert(next);
+	      return ptr;
+	    }
 	  }
-	  }*/
+	}
 
 	//Last resort, malloc new memory and copy old data to new pointer
 	newptr = mm_malloc(size);
