@@ -91,7 +91,16 @@ static void *root = NULL;  //base node of RBTree
 //static int num_nodes = 0;
 static int * dumby = NULL;  //first node of the heap. used for removal in rbtree
 static int heap_size = 0;
-
+/*
+// for testing
+int initi = 0;
+int malloci = 0;
+int freei = 0;
+int realloci = 0;
+int extendi = 0;
+int coalescei = 0;
+int spliti = 0;
+*/
 //the project functions
 int mm_init(void);
 void *mm_malloc(size_t size);
@@ -150,7 +159,8 @@ int* replace_node_one_child(int* node);
  */
 int mm_init(void)
 {
-
+  //initi++;
+  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
 	root = NULL;
 
 	if ((dumby = mem_sbrk(9*WSIZE)) == (void *)-1) return -1;
@@ -179,7 +189,8 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
-	
+  //malloci++;
+  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
 	size_t asize; 		// Adjusted block size
 	//size_t extendsize; 	// Amount to extend heap if no fit
 	char *bp;
@@ -220,6 +231,8 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
+  //freei++;
+  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
 	SET_ALLOC(ptr, 0);
 	insert(ptr);
 	coalesce(ptr);
@@ -240,6 +253,9 @@ void adjust_node(int* node, int dec_size) {
  */
 void *mm_realloc(void *ptr, size_t size)
 {
+  //realloci++;
+  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
+
 	void *oldptr = ptr;
 	void *newptr;
 	size_t oldSize;
@@ -249,8 +265,7 @@ void *mm_realloc(void *ptr, size_t size)
 		return NULL;
 	}
 	if(ptr == NULL) {
-	  ptr = mm_malloc(size);
-	  return ptr;
+	  return mm_malloc(size);
 	}
 
 
@@ -284,11 +299,16 @@ void *mm_realloc(void *ptr, size_t size)
 		  insert(temp);
 		  return prev;
 		}
-        } /*else {
+        } 
+
+	else {
 	  //We are shrinking the node
 	  if( oldSize - asize >= 16) {
-	    int* next = GET_NEXT(ptr);
-	    if((next < (dumby - 8) + heap_size) && GET_ALLOC_T(next) == 0) {
+	    //printf("Got Here\n");
+	    split(ptr, asize);
+	    coalesce(GET_NEXT(ptr));
+	    //int* next = GET_NEXT(ptr);
+	    /*if((next < (dumby - 8) + heap_size) && GET_ALLOC_T(next) == 0) {
 	      //then we can reduce current nodes space and add it to the next nodes size
 	      int nsize = GET_SIZE_T(next) + (oldSize - asize);
 	      SET_SIZE(ptr, asize);
@@ -297,10 +317,21 @@ void *mm_realloc(void *ptr, size_t size)
 	      next = GET_NEXT(ptr);
 	      SET_SIZE(next, nsize);
 	      insert(next);
-	      return ptr;
+	      return ptr;*/
+	  } else {
+	    if (GET_ALLOC_T(GET_NEXT(ptr)) == 0) {
+	      int* next = GET_NEXT(ptr);
+	      delete(next);
+	      int n_size = GET_SIZE_T(next);
+	      n_size += oldSize-asize;
+	      SET_SIZE(ptr, asize);
+	      int* new_next = GET_NEXT(ptr);
+	      SET_SIZE(new_next, n_size);
+	      insert(new_next);
 	    }
 	  }
-	  }*/
+	  return ptr;
+	}
 
 	//Last resort, malloc new memory and copy old data to new pointer
 	newptr = mm_malloc(asize);
@@ -317,6 +348,9 @@ void *mm_realloc(void *ptr, size_t size)
 }
 
 static void *extend_heap(size_t words) {
+  //extendi++;
+  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
+
 	char *bp;
 	size_t size;
 
@@ -340,6 +374,10 @@ static void *extend_heap(size_t words) {
 
 
 static void *coalesce(void * bp) {
+  //coalescei++;
+  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
+
+  //if(!mm_check()) {printf("mm_check fail\n"); assert(0);}
   int* next = GET_NEXT(bp);
   int* last = GET_LAST(bp);
 	size_t prev_alloc = GET_ALLOC_T(last);
@@ -401,6 +439,9 @@ static void *coalesce(void * bp) {
 
 void split(char* node, size_t size)
 {
+  //spliti++;
+  //printf("%d %d %d %d %d %d %d\n", initi, malloci, freei, realloci, extendi, coalescei, spliti);
+
 	int size_b = GET_SIZE_T(node) - size - 4*WSIZE;
 
 	SET_SIZE(node, size);
